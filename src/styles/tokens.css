@@ -1,0 +1,16 @@
+:root {
+  --kv-navy: #102b40;
+  --kv-teal: #176b70;
+  --kv-ambar: #f2bd55;
+  --kv-hielo: #e9eff2;
+  --kv-fondo: #f7f8fa;
+  --kv-texto: #102b40;
+  --kv-texto-suave: #5b6e7c;
+  --kv-borde: #d5dee4;
+  --kv-ok: #176b70;
+  --kv-alerta: #b7791f;
+  --kv-error: #b3372f;
+  --kv-radio: 6px;
+  --kv-fuente: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --kv-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}

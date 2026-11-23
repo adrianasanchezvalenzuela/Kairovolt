@@ -1,0 +1,10 @@
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--kv-fondo); color: var(--kv-texto); font-family: var(--kv-fuente); font-size: 14px; line-height: 1.5; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 15px; margin: 24px 0 8px; }
+a { color: var(--kv-teal); }
+table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--kv-borde); }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--kv-borde); }
+th { background: var(--kv-hielo); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--kv-texto-suave); }
+.kv-mono { font-family: var(--kv-mono); }
+.kv-suave { color: var(--kv-texto-suave); }
