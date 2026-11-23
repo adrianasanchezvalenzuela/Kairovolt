@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { elegirFuente } from './integracion';
+import { elegirFuente, type EstadoSesion } from './integracion';
 
-const sesion = (autenticado: boolean, adminHabilitado = true) => ({ autenticado, adminHabilitado });
+const sesion = (autenticado: boolean, loginHabilitado = true): EstadoSesion => ({
+  autenticado, loginHabilitado, metodos: { token: loginHabilitado, correo: loginHabilitado },
+  usuario: autenticado ? { correo: null, nombre: null, rol: 'admin', via: 'token' } : null,
+});
 
 describe('elegirFuente', () => {
   it('datos reales solo con Zoho conectado Y sesión iniciada', () => {

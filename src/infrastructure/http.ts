@@ -7,7 +7,7 @@ export interface RespuestaApi {
 const CABECERAS = { 'Content-Type': 'application/json', 'X-Requested-With': 'kairovolt' };
 
 /** Llamada al backend (mismo origen vía proxy, con la cookie de sesión). Lanza `Error('backend_no_disponible')` si no hay red. */
-export async function api(metodo: 'GET' | 'POST' | 'DELETE', ruta: string, cuerpo?: unknown): Promise<RespuestaApi> {
+export async function api(metodo: 'GET' | 'POST' | 'PATCH' | 'DELETE', ruta: string, cuerpo?: unknown): Promise<RespuestaApi> {
   let res: Response;
   try {
     res = await fetch(ruta, {

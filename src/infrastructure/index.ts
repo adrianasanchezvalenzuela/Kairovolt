@@ -1,6 +1,10 @@
 import type { IntegracionRepositorio } from '@/application/integracion';
 import type { PortalClienteRepositorio } from '@/application/portal-cliente';
+import type { CuentaRepositorio } from '@/application/cuenta';
+import type { UsuariosRepositorio } from '@/application/usuarios';
+import { cuentaHttp } from './cuenta-http';
 import { integracionHttp } from './integracion-http';
+import { usuariosHttp } from './usuarios-http';
 import { portalClienteMock } from './portal-cliente.mock';
 import { repositorioMock } from './proyecto-repositorio.mock';
 
@@ -14,3 +18,5 @@ export { proyectoRepositorioZoho, sesionHttp as sesionRepositorio, sincronizacio
 export const proyectoRepositorioMock = repositorioMock;
 export const portalClienteRepositorio: PortalClienteRepositorio = portalClienteMock;
 export const integracionRepositorio: IntegracionRepositorio = integracionHttp;
+export const usuariosRepositorio: UsuariosRepositorio = usuariosHttp;
+export const cuentaRepositorio: CuentaRepositorio = cuentaHttp;

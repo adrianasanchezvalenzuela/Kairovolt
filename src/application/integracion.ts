@@ -1,3 +1,5 @@
+import type { RolUsuario } from '@/domain/usuarios/rol';
+
 /** Estado verificable de la integración con Zoho; `backend_no_disponible` = no se pudo preguntar al servidor. */
 export type EstadoZohoUi = 'no_configurado' | 'conectado' | 'error' | 'backend_no_disponible';
 
@@ -10,17 +12,30 @@ export interface IntegracionRepositorio {
   consultarEstado(): Promise<EstadoIntegracion>;
 }
 
-/** `adminHabilitado` = el backend tiene ADMIN_TOKEN y por tanto permite iniciar sesión. */
-export interface EstadoSesion {
-  adminHabilitado: boolean;
-  autenticado: boolean;
+export interface UsuarioSesion {
+  correo: string | null;
+  nombre: string | null;
+  rol: RolUsuario;
+  /** `token` = sesión de emergencia con el ADMIN_TOKEN (rol admin); `supabase` = personal con correo y contraseña. */
+  via: 'token' | 'supabase';
 }
 
-export type ResultadoInicioSesion = 'ok' | 'token_invalido' | 'demasiados_intentos' | 'deshabilitado' | 'error';
+/** `loginHabilitado` = hay al menos un método de acceso configurado en el backend. */
+export interface EstadoSesion {
+  loginHabilitado: boolean;
+  metodos: { token: boolean; correo: boolean };
+  autenticado: boolean;
+  usuario: UsuarioSesion | null;
+}
+
+export type ResultadoInicioSesion =
+  | 'ok' | 'credenciales_invalidas' | 'token_invalido' | 'cuenta_inactiva'
+  | 'demasiados_intentos' | 'deshabilitado' | 'no_disponible' | 'error';
 
 export interface SesionRepositorio {
   consultar(): Promise<EstadoSesion>;
-  iniciar(token: string): Promise<ResultadoInicioSesion>;
+  iniciarConCorreo(correo: string, contrasena: string): Promise<ResultadoInicioSesion>;
+  iniciarConToken(token: string): Promise<ResultadoInicioSesion>;
   cerrar(): Promise<void>;
 }
 
@@ -37,7 +52,7 @@ export interface EleccionFuente {
 export function elegirFuente(zoho: EstadoZohoUi, sesion: EstadoSesion): EleccionFuente {
   if (zoho === 'conectado') {
     if (sesion.autenticado) return { fuente: 'zoho', motivoMock: null };
-    return { fuente: 'mock', motivoMock: sesion.adminHabilitado ? 'requiere_login' : 'login_deshabilitado' };
+    return { fuente: 'mock', motivoMock: sesion.loginHabilitado ? 'requiere_login' : 'login_deshabilitado' };
   }
   const motivo: Record<Exclude<EstadoZohoUi, 'conectado'>, MotivoMock> = {
     no_configurado: 'sin_credenciales',

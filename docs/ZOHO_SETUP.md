@@ -146,7 +146,7 @@ Estos mismos endpoints son los que usan los botones de la interfaz (paso 8).
    - **Datos reales · Zoho CRM + Projects**: Zoho conectado y sesión iniciada.
    - **Datos MOCK · inicia sesión para ver Zoho**: Zoho conectado, falta iniciar sesión.
    - **Datos MOCK · Zoho no conectado / error de conexión / backend no disponible / define ADMIN_TOKEN…**: no hay datos reales y la insignia dice por qué.
-2. Pulsa **Iniciar sesión** (arriba a la derecha) e ingresa tu `ADMIN_TOKEN`. El backend lo cambia por una cookie de sesión
+2. Pulsa **Iniciar sesión** (arriba a la derecha). Con Supabase configurado entras con **correo y contraseña** (ver `supabase/README.md`); el `ADMIN_TOKEN` queda como acceso de emergencia. El backend lo cambia por una cookie de sesión
    `HttpOnly` y `SameSite=Strict` que dura **8 horas**; el token no se guarda en el navegador. Tras 5 intentos fallidos el
    login se bloquea 1 minuto. La cookie va firmada (no hay sesiones en memoria), así que sobrevive a reinicios del backend y funciona en
    serverless; **cambiar el `ADMIN_TOKEN` cierra todas las sesiones**. Cerrar sesión borra la cookie del navegador, pero una cookie

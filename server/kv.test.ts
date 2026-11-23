@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { crearApp, CABECERA_CSRF, VALOR_CSRF } from './app';
 import type { ConfigServidor } from './config';
-import { crearLimitador, crearSesiones } from './sesiones';
+import { crearLimitadores, crearSesiones } from './sesiones';
 import { aProyectoKv } from './zoho/adaptar';
 import { zoho, zohoFalso } from './zoho/falso';
 import { leerProyectos } from './zoho/lectura';
@@ -23,35 +23,41 @@ describe('sesiones sin estado y límite', () => {
   it('la cookie es válida, expira y no se puede falsificar', () => {
     let t = 0;
     const s = crearSesiones('secreto', () => t);
-    const c = s.crear();
-    expect(s.valida(c)).toBe(true);
-    const [exp, firma] = c.split('.') as [string, string];
-    expect(s.valida(`${Number(exp) + 99999}.${firma}`)).toBe(false); // alargar la expiración rompe la firma
-    expect(s.valida(`${exp}.${'0'.repeat(firma.length)}`)).toBe(false);
-    expect(s.valida(`${exp}`)).toBe(false);
-    expect(s.valida(undefined)).toBe(false);
-    expect(crearSesiones('otro-secreto', () => t).valida(c)).toBe(false); // otra clave (otro ADMIN_TOKEN)
+    const c = s.crear('uid-1');
+    expect(s.leer(c)).toEqual({ uid: 'uid-1' });
+    expect(s.leer(s.crear(null))).toEqual({ uid: null }); // sesión del token de emergencia
+    const [carga, firma] = c.split('.') as [string, string];
+    const otraCarga = Buffer.from(JSON.stringify({ u: 'admin-falso', e: 9_999_999_999 })).toString('base64url');
+    expect(s.leer(`${otraCarga}.${firma}`)).toBeNull(); // cambiar el usuario o la expiración rompe la firma
+    expect(s.leer(`${carga}.${'0'.repeat(firma.length)}`)).toBeNull();
+    expect(s.leer(carga)).toBeNull();
+    expect(s.leer(undefined)).toBeNull();
+    expect(crearSesiones('otro-secreto', () => t).leer(c)).toBeNull(); // otra clave
     t = 9 * 3600 * 1000;
-    expect(s.valida(c)).toBe(false); // expiró
+    expect(s.leer(c)).toBeNull(); // expiró
   });
   it('funciona entre instancias distintas con el mismo secreto (serverless)', () => {
-    const c = crearSesiones('mismo').crear();
-    expect(crearSesiones('mismo').valida(c)).toBe(true);
+    const c = crearSesiones('mismo').crear('u');
+    expect(crearSesiones('mismo').leer(c)).toEqual({ uid: 'u' });
   });
-  it('el limitador bloquea tras 5 fallos y se libera con el tiempo', () => {
+  it('el limitador bloquea por clave tras 5 fallos y se libera con el tiempo', () => {
     let t = 0;
-    const l = crearLimitador(5, 60_000, () => t);
-    for (let i = 0; i < 5; i++) l.falla();
-    expect(l.bloqueado()).toBe(true);
+    const l = crearLimitadores(5, 60_000, () => t);
+    for (let i = 0; i < 5; i++) l.falla('ana@x.mx');
+    expect(l.bloqueado('ana@x.mx')).toBe(true);
+    expect(l.bloqueado('luis@x.mx')).toBe(false); // un atacante solo bloquea la cuenta que ataca
     t = 61_000;
-    expect(l.bloqueado()).toBe(false);
+    expect(l.bloqueado('ana@x.mx')).toBe(false);
+    for (let i = 0; i < 5; i++) l.falla('b');
+    l.exito('b');
+    expect(l.bloqueado('b')).toBe(false);
   });
 });
 
 describe('login con ADMIN_TOKEN', () => {
   it('estado de sesión: sin ADMIN_TOKEN el login queda deshabilitado', async () => {
     const app = crearApp({ ...cfg, adminToken: null });
-    expect(await (await app.request('/api/sesion')).json()).toEqual({ adminHabilitado: false, autenticado: false });
+    expect(await (await app.request('/api/sesion')).json()).toMatchObject({ loginHabilitado: false, metodos: { token: false, correo: false }, autenticado: false });
     expect((await app.request('/api/sesion', { method: 'POST', body: '{"token":"x"}' })).status).toBe(404);
   });
 
@@ -64,7 +70,7 @@ describe('login con ADMIN_TOKEN', () => {
     expect(setCookie).toMatch(/SameSite=Strict/i);
     expect(await r.text()).not.toContain(cfg.adminToken);
     const estado = await app.request('/api/sesion', { headers: { Cookie: cookie } });
-    expect(await estado.json()).toEqual({ adminHabilitado: true, autenticado: true });
+    expect(await estado.json()).toMatchObject({ loginHabilitado: true, metodos: { token: true }, autenticado: true, usuario: { rol: 'admin', via: 'token' } });
   });
 
   it('token incorrecto: 401, y tras 5 intentos se bloquea (429) incluso con el correcto', async () => {

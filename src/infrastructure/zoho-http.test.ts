@@ -9,25 +9,50 @@ const stub = (f: (url: string, init: RequestInit) => Response | Promise<Response
 afterEach(() => vi.unstubAllGlobals());
 
 describe('sesionHttp', () => {
-  it('traduce las respuestas del login', async () => {
-    for (const [status, esperado] of [[200, 'ok'], [401, 'token_invalido'], [429, 'demasiados_intentos'], [404, 'deshabilitado'], [500, 'error']] as const) {
-      stub(() => respuesta({}, status));
-      expect(await sesionHttp.iniciar('x')).toBe(esperado);
+  it('login con token: traduce las respuestas', async () => {
+    for (const [status, cuerpo, esperado] of [
+      [200, {}, 'ok'], [401, { error: 'token_invalido' }, 'token_invalido'], [429, {}, 'demasiados_intentos'], [404, {}, 'deshabilitado'], [500, {}, 'error'],
+    ] as const) {
+      stub(() => respuesta(cuerpo, status));
+      expect(await sesionHttp.iniciarConToken('x')).toBe(esperado);
     }
   });
-  it('sin backend: login "error" y sesión no autenticada (no lanza)', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('red'); }));
-    expect(await sesionHttp.iniciar('x')).toBe('error');
-    expect(await sesionHttp.consultar()).toEqual({ adminHabilitado: false, autenticado: false });
+
+  it('login con correo: traduce credenciales inválidas, cuenta inactiva y Supabase caído', async () => {
+    for (const [status, cuerpo, esperado] of [
+      [200, {}, 'ok'], [401, { error: 'credenciales_invalidas' }, 'credenciales_invalidas'], [403, { error: 'cuenta_inactiva' }, 'cuenta_inactiva'],
+      [429, {}, 'demasiados_intentos'], [503, { error: 'auth_no_disponible' }, 'no_disponible'],
+    ] as const) {
+      stub(() => respuesta(cuerpo, status));
+      expect(await sesionHttp.iniciarConCorreo('a@x.mx', 'clave')).toBe(esperado);
+    }
   });
-  it('envía la cookie (same-origin) y la cabecera anti-CSRF; el token viaja solo en el cuerpo del login', async () => {
+
+  it('el correo y la contraseña viajan solo en el cuerpo del POST, nunca en la URL', async () => {
     let visto: { url: string; init: RequestInit } | undefined;
     stub((url, init) => { visto = { url, init }; return respuesta({ autenticado: true }); });
-    await sesionHttp.iniciar('mi-token');
+    await sesionHttp.iniciarConCorreo('ana@idc.mx', 'mi-clave-secreta-1');
     expect(visto?.url).toBe('/api/sesion');
-    expect(visto?.url).not.toContain('mi-token');
+    expect(visto?.url).not.toMatch(/ana@|secreta/);
+    expect(JSON.parse(String(visto?.init.body))).toEqual({ correo: 'ana@idc.mx', contrasena: 'mi-clave-secreta-1' });
     expect(visto?.init.credentials).toBe('same-origin');
     expect((visto?.init.headers as Record<string, string>)['X-Requested-With']).toBe('kairovolt');
+  });
+
+  it('sin backend: login "error" y sesión vacía (no lanza)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('red'); }));
+    expect(await sesionHttp.iniciarConCorreo('a@x.mx', 'x')).toBe('error');
+    expect(await sesionHttp.consultar()).toMatchObject({ loginHabilitado: false, autenticado: false, usuario: null });
+  });
+
+  it('consultar: expone métodos y el usuario con su rol solo si está autenticado', async () => {
+    stub(() => respuesta({ loginHabilitado: true, metodos: { token: true, correo: true }, autenticado: true, usuario: { correo: 'a@x.mx', nombre: 'Ana', rol: 'proyectista', via: 'supabase' } }));
+    expect(await sesionHttp.consultar()).toEqual({
+      loginHabilitado: true, metodos: { token: true, correo: true }, autenticado: true,
+      usuario: { correo: 'a@x.mx', nombre: 'Ana', rol: 'proyectista', via: 'supabase' },
+    });
+    stub(() => respuesta({ loginHabilitado: true, metodos: { token: false, correo: true }, autenticado: false, usuario: { rol: 'admin' } }));
+    expect((await sesionHttp.consultar()).usuario).toBeNull();
   });
 });
 

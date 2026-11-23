@@ -1,4 +1,4 @@
-import type { ResultadoInicioSesion, SesionRepositorio } from '@/application/integracion';
+import type { EstadoSesion, ResultadoInicioSesion, SesionRepositorio, UsuarioSesion } from '@/application/integracion';
 import type { ProyectoRepositorio } from '@/application/proyecto-repositorio';
 import {
   ErrorSincronizacion, type CambioCompuerta, type EnvioObservacion, type ResultadoSincronizacion, type SincronizacionRepositorio,
@@ -27,27 +27,40 @@ export const proyectoRepositorioZoho: ProyectoRepositorio = {
   obtenerPorFolio: async (folio) => (await proyectos(folio))[0] ?? null,
 };
 
+const SIN_SESION: EstadoSesion = { loginHabilitado: false, metodos: { token: false, correo: false }, autenticado: false, usuario: null };
+
+async function iniciar(cuerpo: unknown): Promise<ResultadoInicioSesion> {
+  try {
+    const { status, data } = await api('POST', '/api/sesion', cuerpo);
+    if (status === 200) return 'ok';
+    if (status === 429) return 'demasiados_intentos';
+    if (status === 404) return 'deshabilitado';
+    if (status === 503) return 'no_disponible';
+    if (status === 403 && data.error === 'cuenta_inactiva') return 'cuenta_inactiva';
+    if (status === 401) return data.error === 'token_invalido' ? 'token_invalido' : 'credenciales_invalidas';
+    return 'error';
+  } catch {
+    return 'error';
+  }
+}
+
 export const sesionHttp: SesionRepositorio = {
   async consultar() {
     try {
       const { data } = await api('GET', '/api/sesion');
-      return { adminHabilitado: data.adminHabilitado === true, autenticado: data.autenticado === true };
+      const metodos = (data.metodos ?? {}) as { token?: unknown; correo?: unknown };
+      return {
+        loginHabilitado: data.loginHabilitado === true,
+        metodos: { token: metodos.token === true, correo: metodos.correo === true },
+        autenticado: data.autenticado === true,
+        usuario: data.autenticado === true && data.usuario ? (data.usuario as UsuarioSesion) : null,
+      };
     } catch {
-      return { adminHabilitado: false, autenticado: false };
+      return SIN_SESION;
     }
   },
-  async iniciar(token): Promise<ResultadoInicioSesion> {
-    try {
-      const { status } = await api('POST', '/api/sesion', { token });
-      if (status === 200) return 'ok';
-      if (status === 401) return 'token_invalido';
-      if (status === 429) return 'demasiados_intentos';
-      if (status === 404) return 'deshabilitado';
-      return 'error';
-    } catch {
-      return 'error';
-    }
-  },
+  iniciarConCorreo: (correo, contrasena) => iniciar({ correo, contrasena }),
+  iniciarConToken: (token) => iniciar({ token }),
   async cerrar() {
     await api('DELETE', '/api/sesion').catch(() => undefined);
   },
