@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { LoadingState } from '@/components/ui/Estados';
 import {
   elegirFuente, type EstadoIntegracion, type EstadoSesion, type FuenteDatos, type MotivoMock, type ResultadoInicioSesion, type UsuarioSesion,
 } from '@/application/integracion';
@@ -65,7 +66,7 @@ export function FuenteDatosProvider({ children }: { children: ReactNode }) {
     };
   }, [estado, refrescar]);
 
-  if (!valor) return <p style={{ padding: 24 }}>Cargando…</p>;
+  if (!valor) return <LoadingState variante="pagina" etiqueta="Iniciando KairóVolt…" />;
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }
 

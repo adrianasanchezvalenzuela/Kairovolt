@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { AlertPanel } from '@/components/ui/AlertPanel';
 import { Link } from 'react-router-dom';
 import { ErrorCuenta } from '@/application/cuenta';
 import { validarContrasena } from '@/domain/usuarios/credenciales';
@@ -60,9 +61,9 @@ export function Restablecer() {
     return (
       <div style={{ maxWidth: 420 }}>
         <h1>Enlace no válido</h1>
-        <p role="alert" style={{ color: 'var(--kv-error)' }}>
+        <AlertPanel tono="error">
           {enlace.vencido ? 'El enlace venció o ya se usó.' : 'Esta página solo funciona desde el enlace del correo de recuperación.'}
-        </p>
+        </AlertPanel>
         <p><Link to="/acceso">Pedir un enlace nuevo</Link></p>
       </div>
     );
@@ -79,7 +80,7 @@ export function Restablecer() {
       <input id="repetir" type="password" value={repetir} onChange={(e) => setRepetir(e.target.value)} autoComplete="new-password" required style={campo} />
       {noCoincide && <div style={{ fontSize: 12, marginTop: 2, color: 'var(--kv-error)' }}>Las contraseñas no coinciden.</div>}
       <p><button type="submit" style={{ ...boton, opacity: enviando || problema !== null || noCoincide || nueva === '' || repetir === '' ? 0.5 : 1 }} disabled={enviando || problema !== null || noCoincide || nueva === '' || repetir === ''}>{enviando ? 'Guardando…' : 'Guardar contraseña'}</button></p>
-      {error && <p role="alert" style={{ color: 'var(--kv-error)' }}>{error} <Link to="/acceso">Pedir un enlace nuevo</Link></p>}
+      {error && <AlertPanel tono="error" acciones={<Link to="/acceso">Pedir un enlace nuevo</Link>}>{error}</AlertPanel>}
     </form>
   );
 }

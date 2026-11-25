@@ -1,10 +1,28 @@
 *, *::before, *::after { box-sizing: border-box; }
-body { margin: 0; background: var(--kv-fondo); color: var(--kv-texto); font-family: var(--kv-fuente); font-size: 14px; line-height: 1.5; }
-h1 { font-size: 20px; margin: 0 0 4px; }
-h2 { font-size: 15px; margin: 24px 0 8px; }
+body { margin: 0; background: var(--kv-fondo); color: var(--kv-texto); font-family: var(--kv-fuente); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+h1 { font-size: 22px; line-height: 1.25; margin: 0 0 4px; letter-spacing: -.01em; }
+h2 { font-size: 15px; margin: 28px 0 8px; }
+h3 { font-size: 14px; margin: 0; }
 a { color: var(--kv-teal); }
-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--kv-borde); }
-th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--kv-borde); }
+table { width: 100%; border-collapse: collapse; background: var(--kv-superficie); border: 1px solid var(--kv-borde); }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--kv-borde); vertical-align: top; }
 th { background: var(--kv-hielo); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--kv-texto-suave); }
-.kv-mono { font-family: var(--kv-mono); }
+tbody th[scope='row'] { background: none; text-transform: none; letter-spacing: 0; font-size: inherit; font-weight: 400; color: inherit; }
+.kv-mono { font-family: var(--kv-mono); font-size: .93em; }
+.kv-nowrap { white-space: nowrap; }
 .kv-suave { color: var(--kv-texto-suave); }
+.kv-solo-lectores { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Foco visible y consistente para teclado */
+:focus-visible { outline: none; box-shadow: var(--kv-foco); border-radius: var(--kv-radio); }
+
+/* Campos de formulario: base común para los que no usan un componente propio */
+input:not([type='checkbox']):not([type='radio']):not([type='file']), select, textarea {
+  font: inherit; color: inherit; background: var(--kv-superficie); border: 1px solid var(--kv-borde); border-radius: var(--kv-radio); padding: 7px 10px;
+}
+input:disabled, select:disabled, textarea:disabled { background: var(--kv-neutro-fondo); color: var(--kv-texto-suave); }
+button { font: inherit; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+}

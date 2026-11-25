@@ -35,12 +35,12 @@ export interface ResultadoLectura {
 export interface ModuloCrm { apiName: string; etiqueta: string }
 
 // ---- utilidades de lectura defensiva -------------------------------------------------------------------------
-const texto = (v: unknown): string | null =>
+export const texto = (v: unknown): string | null =>
   typeof v === 'string' ? (v.trim() || null) : typeof v === 'number' ? String(v) : null;
-const registro = (v: unknown): Reg => (v && typeof v === 'object' ? (v as Reg) : {});
-const lista = (v: unknown): Reg[] => (Array.isArray(v) ? v.map(registro) : []);
+export const registro = (v: unknown): Reg => (v && typeof v === 'object' ? (v as Reg) : {});
+export const lista = (v: unknown): Reg[] => (Array.isArray(v) ? v.map(registro) : []);
 /** Zoho Projects a veces responde un arreglo directo y a veces { clave: [...] }; se aceptan ambos. */
-const extraerLista = (data: unknown, clave: string): Reg[] => (Array.isArray(data) ? lista(data) : lista(registro(data)[clave]));
+export const extraerLista = (data: unknown, clave: string): Reg[] => (Array.isArray(data) ? lista(data) : lista(registro(data)[clave]));
 const refId = (v: unknown): string | null => texto(registro(v).id);
 const refNombre = (v: unknown): string | null => texto(registro(v).name);
 const campos = (c: Record<string, string>): string => Object.values(c).map(encodeURIComponent).join(',');

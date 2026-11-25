@@ -1,16 +1,42 @@
 :root {
+  /* Identidad */
   --kv-navy: #102b40;
   --kv-teal: #176b70;
   --kv-ambar: #f2bd55;
   --kv-hielo: #e9eff2;
   --kv-fondo: #f7f8fa;
+
+  /* Texto y bordes (contraste AA sobre blanco y sobre --kv-fondo) */
   --kv-texto: #102b40;
-  --kv-texto-suave: #5b6e7c;
+  --kv-texto-suave: #52677a;
   --kv-borde: #d5dee4;
+  --kv-superficie: #ffffff;
+
+  /* Tonos semánticos: color, fondo suave y color de texto sobre el tono sólido */
   --kv-ok: #176b70;
-  --kv-alerta: #b7791f;
+  --kv-ok-fondo: #e1f0f0;
+  --kv-ok-sobre: #ffffff;
+  --kv-alerta: #8a5a0b;
+  --kv-alerta-fondo: #fdf3dc;
+  --kv-alerta-sobre: #102b40;
+  --kv-alerta-solido: #f2bd55;
   --kv-error: #b3372f;
+  --kv-error-fondo: #fbe9e7;
+  --kv-error-sobre: #ffffff;
+  --kv-info: #102b40;
+  --kv-info-fondo: #e9eff2;
+  --kv-info-sobre: #ffffff;
+  --kv-neutro: #52677a;
+  --kv-neutro-fondo: #eef1f4;
+  --kv-neutro-sobre: #ffffff;
+
   --kv-radio: 6px;
-  --kv-fuente: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --kv-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --kv-radio-grande: 10px;
+  --kv-sombra: 0 1px 2px rgb(16 43 64 / 8%), 0 1px 3px rgb(16 43 64 / 6%);
+  --kv-sombra-modal: 0 12px 40px rgb(16 43 64 / 28%);
+  --kv-foco: 0 0 0 2px #fff, 0 0 0 4px var(--kv-teal);
+  --kv-ancho-sidebar: 240px;
+
+  --kv-fuente: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --kv-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 }

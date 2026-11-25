@@ -1,71 +1,81 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { auditarExpediente } from '@/application/auditar-expediente';
-import { seguimientoProyecto } from '@/application/seguimiento-proyecto';
+import { useEffect, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { documentosVencidos, hoyIso } from '@/application/analizar-proyecto';
+import { alertasDeProyecto } from '@/application/cartera';
+import { historialProyecto } from '@/application/historial';
 import { ErrorSincronizacion } from '@/application/sincronizacion';
-import type { CompuertaId } from '@/domain/compuertas/compuerta';
-import { evaluarCarpetaFisica, evaluarChecklist, puedeSolicitarCompuerta } from '@/domain/checklist/checklist';
 import { cumpleMetaPaer, META_PAER_PORCENTAJE } from '@/domain/indicadores/paer';
 import type { Observacion } from '@/domain/observaciones/observacion';
-import type { Proyecto } from '@/domain/proyecto/proyecto';
 import { potenciaDcKwp } from '@/domain/proyecto/potencia';
+import { puede } from '@/domain/usuarios/permisos';
 import { useFuenteDatos } from '@/hooks/FuenteDatos';
-import { catalogoRequisitos } from '@/infrastructure';
+import { useProyectoCompleto } from '@/hooks/useExpediente';
+import { useConfirmacion } from '@/hooks/useConfirmacion';
 import { AccionesTable } from '@/components/feature/AccionesTable';
-import { ChecklistTable } from '@/components/feature/ChecklistTable';
 import { CronogramaTable } from '@/components/feature/CronogramaTable';
-import { GateStepper } from '@/components/feature/GateStepper';
-import { HallazgosPanel } from '@/components/feature/HallazgosPanel';
+import { DocumentosProyecto } from '@/components/feature/DocumentosProyecto';
+import { AccesoPortalPanel } from '@/components/feature/AccesoPortalPanel';
+import { HistorialProyecto } from '@/components/feature/HistorialProyecto';
 import { NuevaObservacionForm } from '@/components/feature/NuevaObservacionForm';
 import { ObservacionesTable } from '@/components/feature/ObservacionesTable';
-import { SincronizarCompuerta } from '@/components/feature/SincronizarCompuerta';
-import { Indicador } from '@/components/ui/Indicador';
+import { PanelEvidencia } from '@/components/feature/PanelEvidencia';
+import { StageGatePanel } from '@/components/feature/StageGatePanel';
+import { TiemposTabla } from '@/components/feature/TiemposTabla';
+import { ValidacionesProyecto } from '@/components/feature/ValidacionesProyecto';
+import { AlertPanel } from '@/components/ui/AlertPanel';
+import { EmptyState, ErrorState, LoadingState } from '@/components/ui/Estados';
+import { KPI, KPIGrid } from '@/components/ui/KPI';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Tabs, type TabItem } from '@/components/ui/Tabs';
+
+const TABS = ['resumen', 'documentos', 'validaciones', 'cronograma', 'historial'] as const;
+type TabId = (typeof TABS)[number];
+const esTab = (v: string | null): v is TabId => TABS.includes(v as TabId);
 
 export function ProyectoDetalle() {
   const { id = '' } = useParams();
-  const { repositorio, sincronizacion } = useFuenteDatos();
-  const [proyecto, setProyecto] = useState<Proyecto | null | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
-  const [compuertaId, setCompuertaId] = useState<CompuertaId>('G0');
+  const [params, setParams] = useSearchParams();
+  const { sincronizacion } = useFuenteDatos();
+  const pc = useProyectoCompleto(id);
+  const { confirmar, modal } = useConfirmacion();
   const [errorCierre, setErrorCierre] = useState<string | null>(null);
   const [cerrando, setCerrando] = useState(false);
+  const [evidencia, setEvidencia] = useState<string | null>(null);
 
-  const cargar = useCallback(
-    () => repositorio.obtenerPorId(id).then((p) => { setProyecto(p); setError(null); }).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Error desconocido')),
-    [repositorio, id],
-  );
-  useEffect(() => { setProyecto(undefined); void cargar(); }, [cargar]);
+  const tab: TabId = esTab(params.get('tab')) ? (params.get('tab') as TabId) : 'resumen';
+  const enfocar = params.get('huella');
+  const cambiarTab = (t: string) => setParams((p) => { const n = new URLSearchParams(p); n.set('tab', t); n.delete('huella'); return n; }, { replace: true });
 
-  if (error) return <p role="alert" style={{ color: 'var(--kv-error)' }}>No se pudo cargar el proyecto: {error}</p>;
-  if (proyecto === undefined) return <p>Cargando…</p>;
-  if (proyecto === null) return <p>Proyecto no encontrado.</p>;
+  // Al llegar desde una alerta, lleva la validación señalada a la vista.
+  useEffect(() => {
+    if (tab !== 'validaciones' || !enfocar || !pc.analisis) return;
+    document.getElementById(`val-${enfocar}`)?.scrollIntoView({ block: 'center' });
+  }, [tab, enfocar, pc.analisis]);
 
+  if (pc.error) return <ErrorState titulo="No se pudo cargar el proyecto" detalle={pc.error} onReintentar={() => void pc.recargar()} />;
+  if (pc.cargando) return <LoadingState etiqueta="Cargando proyecto…" />;
+  if (pc.noEncontrado || !pc.proyecto || !pc.analisis || !pc.decisiones) {
+    return <EmptyState titulo="Proyecto no encontrado" descripcion="Es posible que el folio ya no exista en la fuente de datos." acciones={<Link to="/proyectos" className="kv-btn kv-btn--secundario">Volver a proyectos</Link>} />;
+  }
+
+  const { proyecto, analisis, decisiones, permisos, usuario, fuente } = pc;
+  const hoy = hoyIso();
   const s = proyecto.sistema;
-  const disponible = proyecto.documentosDisponibles;
-  const resumenes = disponible ? evaluarChecklist(catalogoRequisitos, proyecto.documentos) : [];
-  const hoy = new Date().toISOString().slice(0, 10);
-  const auditoria = auditarExpediente(proyecto, catalogoRequisitos, hoy);
-  const seg = seguimientoProyecto(proyecto, hoy);
-  const carpeta = evaluarCarpetaFisica(resumenes);
-  const resumen = resumenes.find((r) => r.compuerta === compuertaId);
-  const compuerta = proyecto.compuertas.find((c) => c.id === compuertaId);
-  const paerActual = seg.paerSemanal.at(-1);
+  const paerActual = analisis.seguimiento.paerSemanal.at(-1);
+  const alertas = alertasDeProyecto({ proyecto, analisis });
+  const nombreUsuario = usuario?.nombre ?? usuario?.correo ?? null;
+  const documentoEvidencia = proyecto.documentos.find((d) => d.id === evidencia) ?? null;
 
-  const avisosLiberar = [
-    ...puedeSolicitarCompuerta(compuertaId, proyecto.compuertas, resumenes, disponible ? auditoria.bloqueantes.length : 0).motivos.filter((m) => !m.includes('ya está liberada')),
-    ...(disponible ? [] : ['El expediente no está disponible desde Zoho: no se pudo validar el checklist ni los hallazgos.']),
-  ];
-
-  const cerrarObservacion = async (o: Observacion) => {
-    if (!sincronizacion || !window.confirm('¿Marcar esta observación como cerrada en Zoho?')) return;
+  const cerrarObservacionZoho = async (o: Observacion) => {
+    if (!sincronizacion) return;
+    const acepta = await confirmar({ titulo: 'Cerrar observación', mensaje: <>La observación se marcará como cerrada en Zoho CRM: <em>{o.descripcion}</em></>, confirmarTexto: 'Cerrar en Zoho', tono: 'alerta' });
+    if (!acepta) return;
     setCerrando(true);
     setErrorCierre(null);
     try {
-      await sincronizacion.observacion({
-        folio: proyecto.folio, observacionId: o.id, compuerta: o.compuerta, origen: o.origen, estado: 'cerrada',
-        descripcion: o.descripcion, fechaCompromiso: o.fechaCompromiso, responsable: o.responsable,
-      });
-      await cargar();
+      await sincronizacion.observacion({ folio: proyecto.folio, observacionId: o.id, compuerta: o.compuerta, origen: o.origen, estado: 'cerrada', descripcion: o.descripcion, fechaCompromiso: o.fechaCompromiso, responsable: o.responsable });
+      await pc.recargar();
     } catch (e) {
       setErrorCierre(e instanceof ErrorSincronizacion ? e.message : 'Error inesperado.');
     } finally {
@@ -73,96 +83,133 @@ export function ProyectoDetalle() {
     }
   };
 
+  const tabs: TabItem[] = [
+    { id: 'resumen', etiqueta: 'Resumen' },
+    { id: 'documentos', etiqueta: 'Documentos', extra: analisis.disponible && analisis.checklist.some((r) => !r.completa) ? <StatusBadge tono="alerta" variante="suave">{analisis.checklist.reduce((n, r) => n + r.faltantes.length, 0)} faltan</StatusBadge> : null },
+    { id: 'validaciones', etiqueta: 'Validaciones', extra: analisis.pendientes.length > 0 ? <StatusBadge tono="error" variante="solido">{analisis.pendientes.length}</StatusBadge> : null },
+    { id: 'cronograma', etiqueta: 'Cronograma' },
+    { id: 'historial', etiqueta: 'Historial' },
+  ];
+
   return (
     <>
-      <h1>{proyecto.nombre}</h1>
-      <p className="kv-suave">
-        <span className="kv-mono">{proyecto.folio}</span> · {proyecto.municipio}, {proyecto.estado}
-        {proyecto.esMock && <> · <Link to={`/portal/${proyecto.folio}`}>Ver portal del cliente</Link></>}
-      </p>
+      {modal}
+      <PageHeader
+        titulo={proyecto.nombre}
+        migas={[{ etiqueta: 'Proyectos', to: '/proyectos' }, { etiqueta: proyecto.folio }]}
+        meta={<><span className="kv-mono">{proyecto.folio}</span> · {proyecto.municipio}, {proyecto.estado} · {proyecto.cliente}</>}
+        acciones={proyecto.esMock && <Link to="/portal" className="kv-btn kv-btn--secundario kv-btn--sm">Abrir el portal del cliente</Link>}
+      />
+      {proyecto.esMock && <p className="kv-demo"><strong>Caso demostrativo:</strong> datos de prueba (no son los del proyecto real). Las inconsistencias reproducen el caso de 40 kW; los documentos no tienen archivos.</p>}
 
-      {!disponible && (
-        <p className="kv-suave" style={{ background: 'var(--kv-hielo)', padding: '8px 12px', borderRadius: 'var(--kv-radio)' }}>
-          El expediente (documentos y vigencias) todavía no se lee desde Zoho: el checklist, los hallazgos y la carpeta física no están disponibles para este proyecto.
-        </p>
-      )}
+      <Tabs tabs={tabs} activa={tab} onCambiar={cambiarTab} etiqueta="Secciones del proyecto">
+        {tab === 'resumen' && (
+          <>
+            <KPIGrid etiqueta="Indicadores del proyecto">
+              <KPI etiqueta="Bloqueantes sin resolver" tono={analisis.pendientes.length > 0 ? 'error' : 'ok'} valor={analisis.disponible ? String(analisis.pendientes.length) : null} detalle={analisis.disponible ? 'Sin resolver ni excepción aprobada' : 'Expediente no disponible'} />
+              <KPI etiqueta="PPC acumulado" valor={analisis.seguimiento.ppc.porcentaje === null ? null : `${analisis.seguimiento.ppc.porcentaje}%`} detalle={`${analisis.seguimiento.ppc.cumplidas}/${analisis.seguimiento.ppc.planeadas} actividades cumplidas a tiempo`} />
+              <KPI
+                etiqueta="PAER última semana" tono={paerActual && cumpleMetaPaer(paerActual.resultado) === false ? 'alerta' : 'ok'}
+                valor={paerActual?.resultado.porcentaje == null ? null : `${paerActual.resultado.porcentaje}%`}
+                detalle={paerActual ? `${paerActual.resultado.completadas}/${paerActual.resultado.total} acciones · meta >${META_PAER_PORCENTAJE}%${cumpleMetaPaer(paerActual.resultado) === false ? ' (no cumple)' : ''}` : 'Sin acciones acordadas'}
+              />
+              <KPI etiqueta="Observaciones abiertas" tono={analisis.seguimiento.resumenObservaciones.vencidas > 0 ? 'error' : 'ok'} valor={String(analisis.seguimiento.resumenObservaciones.abiertas)} detalle={`${analisis.seguimiento.resumenObservaciones.vencidas} vencidas · ${analisis.seguimiento.resumenObservaciones.sinCompromiso} sin fecha compromiso`} />
+            </KPIGrid>
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', margin: '16px 0 0' }}>
-        <Indicador etiqueta="PPC acumulado" valor={seg.ppc.porcentaje === null ? '—' : `${seg.ppc.porcentaje}%`} detalle={`${seg.ppc.cumplidas}/${seg.ppc.planeadas} actividades cumplidas a tiempo`} />
-        <Indicador
-          etiqueta="PAER última semana"
-          valor={paerActual?.resultado.porcentaje == null ? '—' : `${paerActual.resultado.porcentaje}%`}
-          detalle={paerActual ? `${paerActual.resultado.completadas}/${paerActual.resultado.total} acciones · meta >${META_PAER_PORCENTAJE}%${cumpleMetaPaer(paerActual.resultado) === false ? ' (no cumple)' : ''}` : 'Sin acciones acordadas'}
-        />
-        <Indicador etiqueta="Observaciones abiertas" valor={String(seg.resumenObservaciones.abiertas)} detalle={`${seg.resumenObservaciones.vencidas} vencidas · ${seg.resumenObservaciones.sinCompromiso} sin fecha compromiso`} />
-        {disponible && <Indicador etiqueta="Hallazgos bloqueantes" valor={String(auditoria.bloqueantes.length)} />}
-      </div>
+            {alertas.length > 0 && (
+              <>
+                <h2>Requiere atención</h2>
+                <ul className="kv-lista-alertas">
+                  {alertas.slice(0, 6).map((a) => (
+                    <li key={a.id}>
+                      <AlertPanel tono={a.severidad === 'bloqueante' ? 'error' : a.severidad === 'mayor' ? 'alerta' : 'info'} titulo={a.titulo} variante="en-linea" anunciar={false}>
+                        {a.detalle} <Link to={a.to}>Atender</Link>
+                      </AlertPanel>
+                    </li>
+                  ))}
+                </ul>
+                {alertas.length > 6 && <p className="kv-suave">y {alertas.length - 6} más en la pestaña correspondiente.</p>}
+              </>
+            )}
 
-      {disponible && (
-        <>
-          <h2>Hallazgos ({auditoria.bloqueantes.length} bloqueantes · {auditoria.advertencias.length} advertencias)</h2>
-          <HallazgosPanel hallazgos={auditoria.hallazgos} />
-        </>
-      )}
+            <h2>Stage-Gate</h2>
+            <StageGatePanel
+              proyecto={proyecto} analisis={analisis}
+              puedeLiberar={permisos.liberarCompuertas} puedeGestionar={permisos.gestionarValidaciones}
+              permiteSimular={fuente === 'zoho' && sincronizacion !== null}
+              destinoCambio={fuente === 'zoho' ? 'Zoho Projects (datos reales)' : 'este navegador (datos de prueba)'}
+              vencidos={documentosVencidos(analisis)}
+              onAbrirDocumento={setEvidencia}
+              onCambiar={async (c) => {
+                const r = await pc.cambiarCompuerta(c.compuerta, c.a, { comentario: c.comentario, simular: c.simular });
+                if (r.tipo === 'simulado') return `Simulación: no se escribió nada en Zoho (${JSON.stringify(r.resultado.tipo === 'simulado' ? r.resultado.peticion : r.resultado)}).`;
+                return r.tipo === 'zoho' ? `${c.compuerta} actualizada en Zoho Projects.` : `${c.compuerta} actualizada en este navegador (datos de prueba).`;
+              }}
+            />
 
-      <h2>Compuertas</h2>
-      <GateStepper compuertas={proyecto.compuertas} resumenes={resumenes} seleccionada={compuertaId} onSeleccionar={setCompuertaId} />
+            {puede(usuario?.rol, 'gestionar_portal') && (
+              <>
+                <h2>Portal del cliente</h2>
+                <AccesoPortalPanel folio={proyecto.folio} />
+              </>
+            )}
 
-      {sincronizacion && compuerta && (
-        <SincronizarCompuerta
-          key={`${compuerta.id}-${compuerta.estado}`}
-          folio={proyecto.folio} compuerta={compuerta} sincronizacion={sincronizacion} avisos={avisosLiberar} onSincronizado={() => void cargar()}
-        />
-      )}
+            <div className="kv-dos-col">
+              <div>
+                <h2>Observaciones</h2>
+                <ObservacionesTable observaciones={analisis.seguimiento.observaciones} {...(sincronizacion && { onCerrar: (o: Observacion) => void cerrarObservacionZoho(o) })} ocupado={cerrando} />
+                {errorCierre && <AlertPanel tono="error" onCerrar={() => setErrorCierre(null)}>{errorCierre}</AlertPanel>}
+                {sincronizacion && <NuevaObservacionForm folio={proyecto.folio} compuertaInicial="G1" sincronizacion={sincronizacion} onCreada={() => void pc.recargar()} />}
+              </div>
+              <div>
+                <h2>Datos del sistema</h2>
+                {s ? (
+                  <dl className="kv-dato">
+                    <dt>Paneles</dt><dd>{s.numeroPaneles} × {s.potenciaPanelW} W</dd>
+                    <dt>Potencia DC</dt><dd>{potenciaDcKwp(s.numeroPaneles, s.potenciaPanelW)} kWp</dd>
+                    <dt>Potencia AC</dt><dd>{s.potenciaAcKw} kW</dd>
+                    <dt>Inversores</dt><dd>{s.numeroInversores} × {s.marcaInversor} {s.potenciaInversorKw} kW</dd>
+                    <dt>Transformador</dt><dd>{s.transformadorKva} kVA</dd>
+                  </dl>
+                ) : <p className="kv-suave">La fuente no trae los datos técnicos del sistema.</p>}
+                {analisis.disponible && <p className="kv-suave" style={{ marginTop: 12 }}>Carpeta física: {analisis.carpetaFisica.listos}/{analisis.carpetaFisica.total} documentos con firma o entrega física disponibles.</p>}
+              </div>
+            </div>
+          </>
+        )}
 
-      {resumen && (
-        <>
-          <h2>Checklist {resumen.compuerta}</h2>
-          <ChecklistTable resumen={resumen} decision={puedeSolicitarCompuerta(resumen.compuerta, proyecto.compuertas, resumenes, auditoria.bloqueantes.length)} />
-        </>
-      )}
+        {tab === 'documentos' && <DocumentosProyecto proyecto={proyecto} analisis={analisis} />}
 
-      <h2>Observaciones</h2>
-      <ObservacionesTable observaciones={seg.observaciones} {...(sincronizacion && { onCerrar: (o: Observacion) => void cerrarObservacion(o) })} ocupado={cerrando} />
-      {errorCierre && <p role="alert" style={{ color: 'var(--kv-error)' }}>{errorCierre}</p>}
-      {sincronizacion && (
-        <NuevaObservacionForm folio={proyecto.folio} compuertaInicial={compuertaId} sincronizacion={sincronizacion} onCreada={() => void cargar()} />
-      )}
+        {tab === 'validaciones' && (
+          <ValidacionesProyecto
+            proyecto={proyecto} analisis={analisis} permisos={permisos} usuario={nombreUsuario} hoy={hoy} enfocar={enfocar}
+            acciones={{ registrarObservacion: pc.registrarObservacion, asignarResponsable: pc.asignarResponsable, resolver: pc.resolver }}
+          />
+        )}
 
-      {(proyecto.acciones.length > 0 || proyecto.esMock) && (
-        <>
-          <h2>Acuerdos semanales (Sprint de Energización)</h2>
-          <AccionesTable acciones={proyecto.acciones} paerSemanal={seg.paerSemanal} />
-        </>
-      )}
+        {tab === 'cronograma' && (
+          <>
+            {analisis.seguimiento.actividades.length > 0
+              ? <CronogramaTable actividades={analisis.seguimiento.actividades} />
+              : <EmptyState compacto titulo="Sin cronograma" descripcion="No hay actividades con fechas de inicio y fin." />}
+            {analisis.tiempos && (
+              <>
+                <h2>Tiempos del proceso</h2>
+                <TiemposTabla tiempos={analisis.tiempos.entreHitos} />
+              </>
+            )}
+            {(proyecto.acciones.length > 0 || proyecto.esMock) && (
+              <>
+                <h2>Acuerdos semanales (Sprint de Energización)</h2>
+                <AccionesTable acciones={proyecto.acciones} paerSemanal={analisis.seguimiento.paerSemanal} />
+              </>
+            )}
+          </>
+        )}
 
-      <h2>Cronograma</h2>
-      {seg.actividades.length > 0
-        ? <CronogramaTable actividades={seg.actividades} />
-        : <p className="kv-suave">Sin actividades con fechas de inicio y fin.</p>}
-
-      {disponible && (
-        <>
-          <h2>Carpeta física</h2>
-          <p>
-            {carpeta.listos}/{carpeta.total} documentos con firma o entrega física disponibles
-            {carpeta.pendientes.length > 0 && <span className="kv-suave"> · Pendientes: {carpeta.pendientes.map((i) => i.requisito.nombre).join('; ')}</span>}
-          </p>
-        </>
-      )}
-
-      {s && (
-        <>
-          <h2>Sistema</h2>
-          <table><tbody>
-            <tr><th>Paneles</th><td>{s.numeroPaneles} × {s.potenciaPanelW} W</td></tr>
-            <tr><th>Potencia DC</th><td>{potenciaDcKwp(s.numeroPaneles, s.potenciaPanelW)} kWp</td></tr>
-            <tr><th>Potencia AC</th><td>{s.potenciaAcKw} kW</td></tr>
-            <tr><th>Inversores</th><td>{s.numeroInversores} × {s.marcaInversor} {s.potenciaInversorKw} kW</td></tr>
-            <tr><th>Transformador</th><td>{s.transformadorKva} kVA</td></tr>
-          </tbody></table>
-        </>
-      )}
+        {tab === 'historial' && <HistorialProyecto eventos={historialProyecto(proyecto, decisiones)} />}
+      </Tabs>
+      <PanelEvidencia documento={documentoEvidencia} onCerrar={() => setEvidencia(null)} />
     </>
   );
 }

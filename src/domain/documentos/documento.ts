@@ -34,6 +34,12 @@ export type TipoDocumento =
  * `fechaVigencia` es la fecha de vencimiento declarada en el documento.
  * A qué compuerta pertenece lo define el catálogo de requisitos, no el documento.
  */
+/** Archivo asociado a un documento, cuando la fuente lo tiene. `url` null = no hay archivo que abrir (no se inventa). */
+export interface ArchivoDocumento {
+  url: string | null;
+  mime?: string | null;
+}
+
 export interface DocumentoExpediente {
   id: string;
   tipo: TipoDocumento;
@@ -41,4 +47,6 @@ export interface DocumentoExpediente {
   fechaEmision: string | null;
   fechaVigencia: string | null;
   datos: readonly DatoDeclarado[];
+  /** Archivo consultable; si falta, el documento solo existe como registro. */
+  archivo?: ArchivoDocumento | null;
 }

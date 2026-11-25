@@ -40,3 +40,17 @@ export function paerPorSemana(acciones: readonly AccionAcordada[]): PaerSemanal[
 export function cumpleMetaPaer(r: ResultadoPaer): boolean | null {
   return r.porcentaje === null ? null : r.porcentaje > META_PAER_PORCENTAJE;
 }
+
+/**
+ * PAER de un periodo: acumula las acciones de todas las sesiones semanales entre `desde` y `hasta` (ISO, ambas incluidas).
+ * Es el cociente de los totales, no el promedio de los porcentajes semanales (una semana con más acciones pesa más).
+ */
+export function calcularPaerPeriodo(acciones: readonly AccionAcordada[], desde: string, hasta: string): ResultadoPaer {
+  const dentro = acciones.filter((a) => a.semana >= desde && a.semana <= hasta);
+  const completadas = dentro.filter((a) => a.estado === 'completada').length;
+  return {
+    total: dentro.length,
+    completadas,
+    porcentaje: dentro.length === 0 ? null : Math.round((completadas / dentro.length) * 1000) / 10,
+  };
+}

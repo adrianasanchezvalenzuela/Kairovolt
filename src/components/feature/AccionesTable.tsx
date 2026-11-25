@@ -1,7 +1,7 @@
 import type { AccionAcordada, EstadoAccion } from '@/domain/acciones/accion';
 import type { PaerSemanal } from '@/domain/indicadores/paer';
 import { cumpleMetaPaer } from '@/domain/indicadores/paer';
-import { Badge } from '@/components/ui/Badge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 const etiqueta: Record<EstadoAccion, { texto: string; tono: 'ok' | 'alerta' | 'error' }> = {
   completada: { texto: 'Completada', tono: 'ok' },
@@ -17,7 +17,7 @@ interface Props {
 export function AccionesTable({ acciones, paerSemanal }: Props) {
   if (paerSemanal.length === 0) return <p className="kv-suave">Sin acciones acordadas.</p>;
   return (
-    <table>
+    <div className="kv-tabla-scroll"><table>
       <thead><tr><th>Sesión</th><th>Acción acordada</th><th>Responsable</th><th>Estado</th></tr></thead>
       <tbody>
         {[...paerSemanal].reverse().flatMap(({ semana, resultado }) => [
@@ -25,8 +25,8 @@ export function AccionesTable({ acciones, paerSemanal }: Props) {
             <td colSpan={4}>
               <strong className="kv-mono">{semana}</strong>{' · '}
               PAER {resultado.porcentaje === null ? 'N/A' : `${resultado.porcentaje}%`} ({resultado.completadas}/{resultado.total}){' '}
-              {cumpleMetaPaer(resultado) === true && <Badge tono="ok">Cumple meta</Badge>}
-              {cumpleMetaPaer(resultado) === false && <Badge tono="alerta">Bajo la meta</Badge>}
+              {cumpleMetaPaer(resultado) === true && <StatusBadge tono="ok">Cumple meta</StatusBadge>}
+              {cumpleMetaPaer(resultado) === false && <StatusBadge tono="alerta">Bajo la meta</StatusBadge>}
             </td>
           </tr>,
           ...acciones.filter((a) => a.semana === semana).map((a) => (
@@ -34,11 +34,11 @@ export function AccionesTable({ acciones, paerSemanal }: Props) {
               <td />
               <td>{a.descripcion}</td>
               <td>{a.responsable ?? <span className="kv-suave">Sin asignar</span>}</td>
-              <td><Badge tono={etiqueta[a.estado].tono}>{etiqueta[a.estado].texto}</Badge></td>
+              <td><StatusBadge tono={etiqueta[a.estado].tono}>{etiqueta[a.estado].texto}</StatusBadge></td>
             </tr>
           )),
         ])}
       </tbody>
-    </table>
+    </table></div>
   );
 }

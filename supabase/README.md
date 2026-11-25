@@ -36,6 +36,20 @@ documental, datos declarados, sistema FV, decisiones humanas, acuerdos PAER, per
 
 `SUPABASE_URL` va **sin ruta**: `https://xxxx.supabase.co` (sin `/rest/v1/` ni `/` final).
 
+## Auditoría append-only y límites de confianza
+
+La migración 008 deja la tabla `auditoria_eventos` en solo lectura para el personal autenticado y permite `SELECT, INSERT` al backend con `service_role`. Revoca la RPC pública `registrar_evento_auditoria`; el backend actual registra eventos mediante su adaptador de servidor, sin exponer esa RPC al navegador. Los grants no permiten al rol de servicio actualizar, borrar o truncar filas; además, triggers rechazan `UPDATE`, `DELETE` y `TRUNCATE`.
+
+Esto reduce cambios accidentales y limita el impacto de una credencial de servicio usada por un cliente de API, pero **no convierte PostgreSQL en un almacén WORM**. El propietario de la base, un superusuario o un administrador con capacidad de cambiar esquema/roles puede deshabilitar triggers, cambiar grants o alterar/borrar datos. Una clave `service_role` comprometida también podría insertar eventos falsos, aunque no modificar los ya existentes. Para auditoría regulatoria o evidencia resistente a administradores, se necesita exportación/retención independiente con controles fuera de esta base.
+
+No incluir contraseñas, tokens, secretos, documentos de identidad ni datos personales innecesarios en `detalles`. La clave de servicio solo debe estar disponible en backend y debe rotarse si se expone.
+
+## Catálogo documental canónico (migración 009)
+
+La migración 009 amplía `requisitos_documentales` sin borrar códigos ni documentos existentes. Conserva como filas históricas los registros que aún no tienen equivalencia segura a `tipo_documento`/compuerta; el panel los presenta aparte para revisión de IDC. Las filas mapeadas quedan `validacion_idc = 'pendiente'` hasta que IDC valide el nombre, condición, canal, aportante y compuerta. El portal no resuelve condiciones desconocidas y la liberación real de compuertas queda bloqueada mientras exista un requisito activo mapeado sin validar. El catálogo demo solo se usa en modo DEMO explícito/aislado.
+
+`ejemplos_autorizados` se deja vacío y `generacion_automatica` en falso; la migración no constituye aprobación jurídica ni de CFE. Revisa los registros y marca `validacion_idc = 'validado'` únicamente tras aprobación documentada de IDC.
+
 ## Acceso al panel y usuarios
 
 **Login:** correo y contraseña de Supabase Auth (requiere `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` y `SUPABASE_SECRET_KEY` en `server/.env`).

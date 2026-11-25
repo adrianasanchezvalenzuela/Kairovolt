@@ -1,14 +1,26 @@
+import { evaluarBloqueoCompuerta } from '../compuertas/bloqueo';
 import { ORDEN_COMPUERTAS, type Compuerta, type CompuertaId } from '../compuertas/compuerta';
 import type { DocumentoExpediente, TipoDocumento } from '../documentos/documento';
 
 /** `fisico` = requiere impresión, firma autógrafa o entrega en oficina/ventanilla. */
 export type CanalEntrega = 'digital' | 'fisico';
+export type EstadoValidacionCatalogo = 'pendiente' | 'validado';
+export type QuienAportaDocumento = 'cliente' | 'idc' | 'tercero' | 'pendiente';
+
+export interface CondicionAplicacion {
+  campo: 'modalidad' | 'tipo_instalacion' | 'tipo_titular' | 'zona_uvie';
+  operador: 'igual' | 'distinto' | 'incluye' | 'existe';
+  valor?: string | string[];
+}
 
 /** Requisito documental de una compuerta (definido por catálogo, no por proyecto). */
 export interface Requisito {
   id: string;
+  codigo?: string;
   tipo: TipoDocumento;
   nombre: string;
+  descripcion?: string | null;
+  categoria?: string;
   compuerta: CompuertaId;
   obligatorio: boolean;
   canal: CanalEntrega;
@@ -20,6 +32,38 @@ export interface Requisito {
   requiereVigencia?: boolean;
   /** Su compuerta cambia según la política de la Zona de Distribución (ver `catalogoParaZona`). */
   reubicablePorZona?: boolean;
+  condicionesAplicacion?: readonly CondicionAplicacion[];
+  quienAporta?: QuienAportaDocumento;
+  instruccionesCliente?: string | null;
+  camposEsperados?: readonly string[];
+  ejemplosAutorizados?: readonly string[];
+  generacionAutomatica?: boolean;
+  orden?: number;
+  activo?: boolean;
+  validacionIdc?: EstadoValidacionCatalogo;
+}
+
+export type ResultadoAplicabilidad = 'aplica' | 'no_aplica' | 'pendiente_revision';
+
+export type DatosCondicionAplicacion = Partial<Record<CondicionAplicacion['campo'], string | null>>;
+
+/** Una condición incompleta nunca se interpreta como autorización ni como requisito confirmado. */
+export function evaluarAplicabilidad(requisito: Requisito, datos: DatosCondicionAplicacion): ResultadoAplicabilidad {
+  if (requisito.validacionIdc !== 'validado') return 'pendiente_revision';
+  const condiciones = requisito.condicionesAplicacion ?? [];
+  if (condiciones.length === 0) return requisito.condicion ? 'pendiente_revision' : 'aplica';
+  let desconocida = false;
+  for (const condicion of condiciones) {
+    const actual = datos[condicion.campo];
+    if (actual === undefined || actual === null || actual === '') { desconocida = true; continue; }
+    const valores = Array.isArray(condicion.valor) ? condicion.valor : [condicion.valor];
+    const coincide = condicion.operador === 'existe' ? true
+      : condicion.operador === 'igual' ? actual === valores[0]
+        : condicion.operador === 'distinto' ? actual !== valores[0]
+          : valores.includes(actual);
+    if (!coincide) return 'no_aplica';
+  }
+  return desconocida ? 'pendiente_revision' : 'aplica';
 }
 
 /** Parámetros que varían por Zona de Distribución. */
@@ -110,6 +154,7 @@ export interface DecisionCompuerta {
 /**
  * Una compuerta solo puede solicitarse si las anteriores están liberadas y su checklist obligatorio está completo.
  * Compuertas ya liberadas no se vuelven a solicitar.
+ * Envoltorio de `evaluarBloqueoCompuerta` (compuertas/bloqueo.ts), donde vive la lógica y las demás razones de bloqueo.
  */
 export function puedeSolicitarCompuerta(
   id: CompuertaId,
@@ -117,18 +162,9 @@ export function puedeSolicitarCompuerta(
   resumenes: readonly ResumenCompuerta[],
   bloqueantesAbiertos = 0,
 ): DecisionCompuerta {
-  const motivos: string[] = [];
-  // G2 es el filtro anti-reingresos: no pasa con hallazgos bloqueantes abiertos.
-  if (id === 'G2' && bloqueantesAbiertos > 0) motivos.push(`${bloqueantesAbiertos} hallazgo(s) bloqueante(s) abierto(s)`);
-  const estadoDe = (c: CompuertaId) => compuertas.find((x) => x.id === c)?.estado;
-
-  if (estadoDe(id) === 'liberada') motivos.push(`${id} ya está liberada`);
-  for (const previa of ORDEN_COMPUERTAS.slice(0, ORDEN_COMPUERTAS.indexOf(id))) {
-    if (estadoDe(previa) !== 'liberada') motivos.push(`${previa} no está liberada`);
-  }
-  const resumen = resumenes.find((r) => r.compuerta === id);
-  if (resumen && !resumen.completa) {
-    motivos.push(`Faltan ${resumen.faltantes.length} documento(s) obligatorio(s) de ${id}`);
-  }
-  return { permitido: motivos.length === 0, motivos };
+  const d = evaluarBloqueoCompuerta({
+    compuerta: id, compuertas, resumenes,
+    validacionesBloqueantes: Array.from({ length: bloqueantesAbiertos }, (_, i) => ({ reglaId: 'legado', huella: `legado:${i}`, titulo: 'hallazgo bloqueante' })),
+  });
+  return { permitido: !d.bloqueada, motivos: d.razones.map((r) => r.mensaje) };
 }

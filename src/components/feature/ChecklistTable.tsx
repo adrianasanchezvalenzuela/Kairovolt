@@ -1,36 +1,31 @@
-import type { ResumenCompuerta, DecisionCompuerta } from '@/domain/checklist/checklist';
-import { Badge } from '@/components/ui/Badge';
+import type { ResumenCompuerta } from '@/domain/checklist/checklist';
+import { Boton } from '@/components/ui/Boton';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { DocumentRow, DocumentTable } from './DocumentRow';
 
 interface Props {
   resumen: ResumenCompuerta;
-  decision: DecisionCompuerta;
+  /** Si se da, cada documento recibido muestra «Ver» (abre su evidencia). */
+  onAbrir?: (documentoId: string) => void;
+  /** Ids de documentos con la vigencia vencida (se muestran como «Vencido»). */
+  vencidos?: ReadonlySet<string>;
 }
 
-export function ChecklistTable({ resumen, decision }: Props) {
+/** Requisitos de una compuerta contra los documentos recibidos. No decide si la compuerta puede avanzar: eso lo hace el dominio. */
+export function ChecklistTable({ resumen, onAbrir, vencidos }: Props) {
   return (
-    <>
-      <table>
-        <thead><tr><th>Requisito</th><th>Tipo</th><th>Canal</th><th>Estado</th><th>Documento</th></tr></thead>
-        <tbody>
-          {resumen.items.map(({ requisito, documento }) => (
-            <tr key={requisito.id}>
-              <td>{requisito.nombre}</td>
-              <td>{requisito.obligatorio ? 'Obligatorio' : <span title={requisito.condicion}>Condicional</span>}</td>
-              <td>{requisito.canal === 'fisico' ? <Badge tono="alerta">Físico / firma</Badge> : 'Digital'}</td>
-              <td>{documento ? <Badge tono="ok">Recibido</Badge> : <Badge tono={requisito.obligatorio ? 'error' : 'neutro'}>Faltante</Badge>}</td>
-              <td className="kv-suave">{documento?.nombre ?? requisito.condicion ?? '—'}</td>
-            </tr>
-          ))}
-          {resumen.items.length === 0 && (
-            <tr><td colSpan={5} className="kv-suave">Sin requisitos definidos para {resumen.compuerta}.</td></tr>
-          )}
-        </tbody>
-      </table>
-      <p style={{ marginTop: 12 }}>
-        {decision.permitido
-          ? <Badge tono="ok">{resumen.compuerta} lista para solicitarse</Badge>
-          : <><Badge tono="alerta">{resumen.compuerta} no puede solicitarse</Badge> <span className="kv-suave">{decision.motivos.join(' · ')}</span></>}
-      </p>
-    </>
+    <DocumentTable etiqueta={`Checklist ${resumen.compuerta}`} conAcciones={Boolean(onAbrir)} {...(resumen.items.length === 0 && { vacio: `Sin requisitos definidos para ${resumen.compuerta}.` })}>
+      {resumen.items.map(({ requisito, documento }) => (
+        <DocumentRow
+          key={requisito.id}
+          nombre={requisito.nombre}
+          tipo={requisito.obligatorio ? 'Obligatorio' : <span title={requisito.condicion}>Condicional</span>}
+          canal={requisito.canal === 'fisico' ? <StatusBadge tono="alerta">Físico / firma</StatusBadge> : 'Digital'}
+          estado={!documento ? { texto: 'Faltante', tono: requisito.obligatorio ? 'error' : 'neutro' } : vencidos?.has(documento.id) ? { texto: 'Vencido', tono: 'error' } : { texto: 'Recibido', tono: 'ok' }}
+          archivo={documento?.nombre ?? requisito.condicion ?? '—'}
+          {...(onAbrir && { acciones: documento ? <Boton tamano="sm" onClick={() => onAbrir(documento.id)}>Ver<span className="kv-solo-lectores"> {documento.nombre}</span></Boton> : null })}
+        />
+      ))}
+    </DocumentTable>
   );
 }

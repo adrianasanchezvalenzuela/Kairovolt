@@ -1,6 +1,8 @@
 import type { SeguimientoProyecto } from '@/application/seguimiento-proyecto';
 import type { Observacion, SeguimientoObservacion } from '@/domain/observaciones/observacion';
-import { Badge } from '@/components/ui/Badge';
+import { EmptyState } from '@/components/ui/Estados';
+import { Boton } from '@/components/ui/Boton';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 const etiqueta: Record<SeguimientoObservacion, { texto: string; tono: 'ok' | 'alerta' | 'error' | 'neutro' }> = {
   cerrada: { texto: 'Cerrada', tono: 'ok' },
@@ -17,9 +19,9 @@ interface Props {
 }
 
 export function ObservacionesTable({ observaciones, onCerrar, ocupado }: Props) {
-  if (observaciones.length === 0) return <p className="kv-suave">Sin observaciones registradas.</p>;
+  if (observaciones.length === 0) return <EmptyState compacto titulo="Sin observaciones" descripcion="Aún no hay observaciones registradas para este proyecto." />;
   return (
-    <table>
+    <div className="kv-tabla-scroll"><table>
       <thead><tr><th>Compuerta</th><th>Origen</th><th>Observación</th><th>Responsable</th><th>Compromiso</th><th>Seguimiento</th>{onCerrar && <th />}</tr></thead>
       <tbody>
         {observaciones.map(({ observacion: o, seguimiento }) => (
@@ -29,11 +31,11 @@ export function ObservacionesTable({ observaciones, onCerrar, ocupado }: Props) 
             <td>{o.descripcion}</td>
             <td>{o.responsable ?? <span className="kv-suave">Sin asignar</span>}</td>
             <td className="kv-mono">{o.fechaCompromiso ?? '—'}</td>
-            <td><Badge tono={etiqueta[seguimiento].tono}>{etiqueta[seguimiento].texto}</Badge></td>
-            {onCerrar && <td>{o.estado !== 'cerrada' && <button disabled={ocupado} onClick={() => onCerrar(o)}>Cerrar</button>}</td>}
+            <td><StatusBadge tono={etiqueta[seguimiento].tono}>{etiqueta[seguimiento].texto}</StatusBadge></td>
+            {onCerrar && <td>{o.estado !== 'cerrada' && <Boton tamano="sm" disabled={ocupado} onClick={() => onCerrar(o)}>Cerrar</Boton>}</td>}
           </tr>
         ))}
       </tbody>
-    </table>
+    </table></div>
   );
 }

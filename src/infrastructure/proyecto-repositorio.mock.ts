@@ -1,7 +1,8 @@
 import type { ProyectoRepositorio } from '@/application/proyecto-repositorio';
-import { proyectoReferenciaMock } from '@/data/proyecto-referencia.mock';
+import { kv2026004Demo } from '@/data/kv-2026-004.demo';
 
-const proyectos = [proyectoReferenciaMock];
+/** Datos de PRUEBA: el caso demostrativo KV-2026-004. El proyecto de referencia (KV-MOCK-0001) queda solo para las pruebas del dominio. */
+const proyectos = [kv2026004Demo];
 
 export const repositorioMock: ProyectoRepositorio = {
   origen: 'mock',

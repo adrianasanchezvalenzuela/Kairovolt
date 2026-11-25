@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { AlertPanel } from '@/components/ui/AlertPanel';
+import { Boton } from '@/components/ui/Boton';
 import { ErrorSincronizacion, type SincronizacionRepositorio } from '@/application/sincronizacion';
 import { NOMBRE_COMPUERTA, ORDEN_COMPUERTAS, type CompuertaId } from '@/domain/compuertas/compuerta';
 import type { OrigenObservacion } from '@/domain/observaciones/observacion';
@@ -45,9 +47,9 @@ export function NuevaObservacionForm({ folio, compuertaInicial, sincronizacion, 
   };
 
   return (
-    <form onSubmit={(e) => void enviar(e)} style={{ background: '#fff', border: '1px solid var(--kv-borde)', borderRadius: 'var(--kv-radio)', padding: 12, marginTop: 12 }}>
+    <form onSubmit={(e) => void enviar(e)} className="kv-formulario">
       <strong>Nueva observación (se guarda en Zoho CRM)</strong>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+      <div className="kv-fila">
         <select aria-label="Compuerta" value={compuerta} onChange={(e) => setCompuerta(e.target.value as CompuertaId)}>
           {ORDEN_COMPUERTAS.map((g) => <option key={g} value={g}>{g} · {NOMBRE_COMPUERTA[g]}</option>)}
         </select>
@@ -61,8 +63,8 @@ export function NuevaObservacionForm({ folio, compuertaInicial, sincronizacion, 
         aria-label="Descripción" required rows={2} maxLength={2000} placeholder="Descripción de la observación" value={descripcion}
         onChange={(e) => setDescripcion(e.target.value)} style={{ width: '100%', marginTop: 8, font: 'inherit' }}
       />
-      <button type="submit" disabled={enviando || descripcion.trim() === ''}>{enviando ? 'Enviando…' : 'Registrar en Zoho'}</button>
-      {mensaje && <p role={mensaje.tipo === 'error' ? 'alert' : 'status'} style={{ margin: '8px 0 0', color: mensaje.tipo === 'error' ? 'var(--kv-error)' : 'var(--kv-ok)' }}>{mensaje.texto}</p>}
+      <div className="kv-fila"><Boton type="submit" variante="primario" cargando={enviando} disabled={descripcion.trim() === ''}>{enviando ? 'Enviando…' : 'Registrar en Zoho'}</Boton></div>
+      {mensaje && <AlertPanel tono={mensaje.tipo === 'error' ? 'error' : 'ok'} variante="en-linea">{mensaje.texto}</AlertPanel>}
     </form>
   );
 }

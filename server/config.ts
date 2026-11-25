@@ -7,6 +7,8 @@ export interface ZohoConfig {
   projectsUrl: string;
   /** ID del portal de Zoho Projects; null = las operaciones de Projects quedan deshabilitadas. */
   portalId: string | null;
+  /** Carpeta raíz de WorkDrive (carpeta de equipo) donde se crean las carpetas por folio; null = WorkDrive deshabilitado. */
+  workdriveRootId?: string | null;
 }
 
 export interface SupabaseConfig {
@@ -28,6 +30,10 @@ export interface ConfigServidor {
   sessionSecret?: string | null;
   /** URL pública de la app (https://app.ejemplo.com) para los enlaces de los correos. Si falta, se toma del origen de la petición. */
   appUrl?: string | null;
+  /** Fuerza el portal del cliente en modo DEMO (datos de prueba, todo en memoria), aunque haya credenciales. */
+  portalDemo?: boolean;
+  /** Marca sesiones Secure en producción/HTTPS; falso por defecto para desarrollo local HTTP. */
+  secureCookies?: boolean;
 }
 
 /** Solo se envían credenciales/tokens a dominios oficiales de Zoho (evita fuga a hosts arbitrarios). */
@@ -56,6 +62,7 @@ export function leerConfig(env: Record<string, string | undefined>): ConfigServi
       accountsUrl,
       projectsUrl,
       portalId: env.ZOHO_PROJECTS_PORTAL_ID || null,
+      workdriveRootId: env.ZOHO_WORKDRIVE_ROOT_FOLDER_ID || null,
     };
   }
   let supabase: SupabaseConfig | null = null;
@@ -68,5 +75,7 @@ export function leerConfig(env: Record<string, string | undefined>): ConfigServi
     const publishable = (env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY || '').trim();
     supabase = { url: origen, secretKey: secretKey.trim(), publishableKey: publishable || null };
   }
-  return { port: Number(env.PORT) || 8787, zoho, supabase, adminToken: env.ADMIN_TOKEN || null, sessionSecret: env.SESSION_SECRET || null, appUrl: env.APP_URL ? sinBarraFinal(env.APP_URL.trim()) : null };
+  const appUrl = env.APP_URL ? sinBarraFinal(env.APP_URL.trim()) : null;
+  const secureCookies = env.NODE_ENV === 'production' || appUrl?.startsWith('https://') === true;
+  return { port: Number(env.PORT) || 8787, zoho, supabase, adminToken: env.ADMIN_TOKEN || null, sessionSecret: env.SESSION_SECRET || null, appUrl, portalDemo: /^(1|true|si|sí)$/i.test((env.PORTAL_MODO_DEMO ?? '').trim()), secureCookies };
 }

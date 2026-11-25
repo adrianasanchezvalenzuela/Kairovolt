@@ -1,0 +1,187 @@
+/* ============================================================
+   Portal del cliente (.kvp-*). Mobile-first: una columna, botones grandes, navegación inferior.
+   Visualmente distinto del panel interno: tarjetas redondeadas, tipografía más grande y pocas cosas por pantalla.
+   ============================================================ */
+
+.kvp { min-height: 100vh; background: var(--kv-fondo); font-size: 16px; line-height: 1.5; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+.kvp h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -.01em; }
+.kvp h2 { font-size: 18px; margin: 28px 0 10px; }
+.kvp h3 { font-size: 16px; margin: 0; }
+.kvp p { margin: 0 0 8px; }
+
+.kvp-cab { background: var(--kv-navy); color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 4px solid var(--kv-ambar); position: sticky; top: 0; z-index: 20; }
+.kvp-cab__marca { font-weight: 700; font-size: 18px; letter-spacing: -.01em; }
+.kvp-cab__folio { font-family: var(--kv-mono); font-size: 13px; opacity: .85; }
+.kvp-cab__salir { margin-left: auto; }
+.kvp-cab .kv-btn { min-height: 40px; }
+
+.kvp-contenido { max-width: 720px; margin: 0 auto; padding: 20px 16px 8px; }
+.kvp-contenido:focus { outline: none; }
+
+/* ---------- Navegación inferior (móvil) / superior (escritorio) ---------- */
+.kvp-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--kv-superficie); border-top: 1px solid var(--kv-borde); display: grid; grid-template-columns: repeat(4, 1fr); padding-bottom: env(safe-area-inset-bottom); box-shadow: 0 -2px 12px rgb(16 43 64 / 8%); }
+.kvp-nav a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 60px; padding: 6px 4px; color: var(--kv-texto-suave); text-decoration: none; font-size: 12px; font-weight: 600; position: relative; }
+.kvp-nav a[aria-current='page'] { color: var(--kv-teal); }
+.kvp-nav a[aria-current='page']::before { content: ''; position: absolute; top: 0; left: 25%; right: 25%; height: 3px; background: var(--kv-teal); border-radius: 0 0 3px 3px; }
+.kvp-nav__icono { font-size: 22px; line-height: 1; }
+.kvp-nav__cuenta { position: absolute; top: 4px; left: calc(50% + 8px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--kv-error); color: #fff; font-size: 11px; display: grid; place-items: center; }
+@media (min-width: 900px) {
+  .kvp { padding-bottom: 24px; }
+  .kvp-nav { position: sticky; top: 56px; bottom: auto; border-top: 0; border-bottom: 1px solid var(--kv-borde); box-shadow: none; grid-template-columns: repeat(4, minmax(0, 160px)); justify-content: center; padding-bottom: 0; }
+  .kvp-nav a { flex-direction: row; gap: 8px; min-height: 52px; font-size: 15px; }
+  .kvp-nav a[aria-current='page']::before { top: auto; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; }
+}
+
+/* ---------- Tarjetas ---------- */
+.kvp-tarjeta { background: var(--kv-superficie); border: 1px solid var(--kv-borde); border-radius: 18px; padding: 18px; box-shadow: var(--kv-sombra); }
+.kvp-tarjeta + .kvp-tarjeta { margin-top: 12px; }
+
+/* ---------- Avance (anillo) ---------- */
+.kvp-hero { background: linear-gradient(160deg, var(--kv-navy) 0%, #1a4560 100%); color: #fff; border-radius: 22px; padding: 22px 18px; display: grid; justify-items: center; text-align: center; gap: 6px; box-shadow: 0 6px 20px rgb(16 43 64 / 22%); }
+.kvp-hero__nombre { font-size: 18px; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
+.kvp-hero__sub { margin: 0; opacity: .8; font-size: 14px; }
+.kvp-anillo { position: relative; width: 168px; height: 168px; margin: 6px 0; }
+.kvp-anillo svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.kvp-anillo__pista { fill: none; stroke: rgb(255 255 255 / 18%); stroke-width: 12; }
+.kvp-anillo__valor { fill: none; stroke: var(--kv-ambar); stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+.kvp-anillo__texto { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.kvp-anillo__numero { font-size: 44px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.kvp-anillo__etiqueta { font-size: 13px; opacity: .8; }
+.kvp-hero__etapa { display: inline-block; background: rgb(255 255 255 / 14%); border-radius: 999px; padding: 4px 14px; font-weight: 600; font-size: 14px; }
+.kvp-aprox { font-size: 12px; opacity: .85; margin: 2px 0 0; }
+
+/* ---------- Siguiente paso ---------- */
+.kvp-paso { border-left: 6px solid var(--kv-teal); }
+.kvp-paso--cliente { border-left-color: var(--kv-ambar); background: var(--kv-alerta-fondo); }
+.kvp-paso__quien { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; color: var(--kv-texto-suave); margin: 0 0 4px; }
+.kvp-paso__titulo { font-size: 19px; font-weight: 700; margin: 0 0 4px; }
+.kvp-paso__fecha { font-size: 14px; color: var(--kv-texto-suave); margin: 6px 0 0; }
+
+/* ---------- Etapas ---------- */
+.kvp-etapas { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.kvp-etapa { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 0 12px; padding-bottom: 18px; position: relative; }
+.kvp-etapa:last-child { padding-bottom: 0; }
+.kvp-etapa::before { content: ''; position: absolute; left: 17px; top: 34px; bottom: 0; width: 2px; background: var(--kv-borde); }
+.kvp-etapa:last-child::before { display: none; }
+.kvp-etapa__punto { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; background: var(--kv-neutro-fondo); color: var(--kv-texto-suave); border: 2px solid var(--kv-borde); z-index: 1; }
+.kvp-etapa--ok .kvp-etapa__punto { background: var(--kv-teal); color: #fff; border-color: var(--kv-teal); }
+.kvp-etapa--actual .kvp-etapa__punto { background: var(--kv-ambar); color: var(--kv-navy); border-color: var(--kv-ambar); box-shadow: 0 0 0 4px rgb(242 189 85 / 30%); }
+.kvp-etapa--alerta .kvp-etapa__punto { border-color: var(--kv-alerta-solido); }
+.kvp-etapa__titulo { font-weight: 700; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.kvp-etapa__texto { color: var(--kv-texto-suave); font-size: 14px; margin: 2px 0 6px; }
+.kvp-etapa .kv-progreso { max-width: 260px; }
+
+/* ---------- Documentos ---------- */
+.kvp-docs { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.kvp-doc { background: var(--kv-superficie); border: 1px solid var(--kv-borde); border-radius: 16px; padding: 16px; }
+.kvp-doc--accion { border-color: var(--kv-alerta-solido); border-width: 2px; }
+.kvp-doc__cab { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.kvp-doc__nombre { font-weight: 700; margin: 0; overflow-wrap: anywhere; }
+.kvp-doc__texto { color: var(--kv-texto-suave); font-size: 14px; margin: 4px 0 0; }
+.kvp-subir { margin-top: 12px; display: grid; gap: 8px; }
+.kvp-subir input[type='file'] { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.kvp-boton { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 12px 18px; border-radius: 14px; border: 2px solid var(--kv-teal); background: var(--kv-teal); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; text-decoration: none; }
+.kvp-boton:hover:not(:disabled) { background: #11565a; }
+.kvp-boton--suave { background: var(--kv-superficie); color: var(--kv-teal); }
+.kvp-boton--suave:hover:not(:disabled) { background: var(--kv-ok-fondo); }
+.kvp-boton:disabled { opacity: .6; cursor: not-allowed; }
+.kvp-subir:focus-within .kvp-boton { box-shadow: var(--kv-foco); }
+.kvp-barra { height: 10px; border-radius: 999px; background: var(--kv-hielo); overflow: hidden; }
+.kvp-barra > div { height: 100%; background: var(--kv-teal); transition: width .15s; }
+.kvp-ayuda { font-size: 13px; color: var(--kv-texto-suave); margin: 0; text-align: center; }
+
+/* ---------- Recibos, avisos, historial ---------- */
+.kvp-recibo { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: start; }
+.kvp-recibo__icono { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--kv-ok-fondo); color: var(--kv-ok); font-weight: 700; font-size: 18px; }
+.kvp-recibo__icono--rechazo { background: var(--kv-error-fondo); color: var(--kv-error); }
+.kvp-recibo__acuse { font-family: var(--kv-mono); font-size: 13px; }
+.kvp-avisos { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.kvp-aviso { background: var(--kv-superficie); border: 1px solid var(--kv-borde); border-radius: 16px; padding: 14px 16px; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; }
+.kvp-aviso--accion { border-left: 6px solid var(--kv-ambar); }
+.kvp-aviso--avance { border-left: 6px solid var(--kv-teal); }
+.kvp-aviso--recepcion { border-left: 6px solid var(--kv-ok); }
+.kvp-aviso__icono { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--kv-hielo); font-size: 18px; }
+.kvp-aviso__titulo { font-weight: 700; margin: 0; overflow-wrap: anywhere; }
+.kvp-aviso__fecha { font-size: 12px; color: var(--kv-texto-suave); font-family: var(--kv-mono); }
+
+/* ---------- Acceso de cliente ---------- */
+.kvp:has(.kvp-acceso) { min-height: 100svh; padding: 0; background: #f7f8fa; }
+.kvp-acceso { min-height: 100svh; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(420px, .92fr); margin: 0; padding: 0; color: var(--kv-navy); }
+.kvp-acceso__marca { background: #e9eff2; padding: clamp(32px, 5vw, 76px) clamp(28px, 7vw, 104px); display: flex; flex-direction: column; justify-content: space-between; min-height: 100svh; overflow: hidden; position: relative; }
+.kvp-acceso__marca::before { content: ''; position: absolute; width: 540px; height: 540px; border: 1px solid rgb(23 107 112 / 12%); border-radius: 50%; right: -245px; top: 85px; box-shadow: 0 0 0 45px rgb(23 107 112 / 3%), 0 0 0 90px rgb(23 107 112 / 2%); pointer-events: none; }
+.kvp-acceso__identidad { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
+.kvp-acceso__identidad strong { display: block; font-size: 24px; letter-spacing: -.04em; line-height: 1.05; }
+.kvp-acceso__identidad div > span { display: block; color: #506575; font-size: 12px; margin-top: 4px; }
+.kvp-acceso__sello { width: 42px; height: 42px; display: grid; place-items: center; background: var(--kv-navy); color: var(--kv-ambar); font-weight: 800; font-size: 24px; border-radius: 3px 13px 3px 13px; }
+.kvp-acceso__relato { max-width: 600px; margin: 54px 0 10px; position: relative; z-index: 1; }
+.kvp-acceso__eyebrow { text-transform: uppercase; letter-spacing: .13em; color: var(--kv-teal); font-size: 11px; font-weight: 800; margin: 0 0 14px; }
+.kvp-acceso__relato h1 { font-size: clamp(42px, 5.3vw, 70px); line-height: 1.02; letter-spacing: -.055em; max-width: 640px; margin: 0; }
+.kvp-acceso__intro { color: #425d6e; font-size: 17px; line-height: 1.6; max-width: 460px; margin: 18px 0 0 !important; }
+.kvp-acceso__grafica { align-self: center; width: min(100%, 550px); margin: 6px auto -2px; position: relative; z-index: 1; }
+.kvp-acceso__grafica svg { display: block; width: 100%; height: auto; max-height: 245px; }
+.kvp-acceso__pasos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); list-style: none; padding: 18px 0 0; margin: 0; border-top: 1px solid #c7d5db; gap: 12px; position: relative; z-index: 1; }
+.kvp-acceso__pasos li { display: flex; gap: 10px; align-items: flex-start; }
+.kvp-acceso__pasos li > span { font: 600 12px var(--kv-mono); color: var(--kv-teal); padding-top: 2px; }
+.kvp-acceso__pasos b,.kvp-acceso__pasos small { display: block; }
+.kvp-acceso__pasos b { font-size: 14px; }
+.kvp-acceso__pasos small { color: #5b6e7a; font-size: 11px; line-height: 1.4; margin-top: 2px; }
+.kvp-acceso__panel { min-height: 100svh; padding: clamp(28px, 5vw, 72px); display: grid; place-items: center; background: #f7f8fa; }
+.kvp-acceso__panel-inner { width: min(100%, 440px); }
+.kvp-acceso__privado { display: inline-flex; align-items: center; gap: 8px; color: #496475; border: 1px solid #d3dfe4; border-radius: 3px; padding: 7px 10px; font-size: 12px; font-weight: 600; margin-bottom: 28px; }
+.kvp-acceso__panel h2 { font-size: 32px; line-height: 1.12; letter-spacing: -.045em; margin: 0 0 8px; }
+.kvp-acceso__panel form { margin-top: 28px; }
+.kvp-acceso label { display: block; font-weight: 700; margin: 16px 0 7px; font-size: 14px; }
+.kvp-acceso input { width: 100%; min-height: 54px; font-size: 16px; border-radius: 5px; padding: 12px 14px; border: 1px solid #b9c8d0; background: #fff; }
+.kvp-acceso input:focus-visible { border-color: var(--kv-teal); outline: 3px solid rgb(23 107 112 / 15%); }
+.kvp-acceso .kvp-boton { margin-top: 22px; border-radius: 5px; justify-content: space-between; padding-inline: 18px; }
+.kvp-acceso__ayuda { color: #526979; margin: 17px 0 0 !important; font-size: 13px; }
+.kvp-acceso__interes { border-top: 1px solid #d6e0e4; margin-top: 34px; padding-top: 22px; }
+.kvp-acceso__interes .kvp-acceso__eyebrow { margin-bottom: 8px; font-size: 10px; }
+.kvp-acceso__interes h3 { font-size: 17px; margin: 0 0 6px; }
+.kvp-acceso__interes p:last-child { color: #536a78; font-size: 13px; line-height: 1.5; }
+.kvp-demo { background: var(--kv-alerta-fondo); border: 1px dashed var(--kv-alerta-solido); border-radius: 5px; padding: 12px 14px; margin-top: 18px; font-size: 13px; }
+.kvp-demo code { font-family: var(--kv-mono); font-weight: 700; font-size: 15px; user-select: all; }
+
+.kvp-aviso-cfe { padding: 10px 13px; border-left: 3px solid var(--kv-ambar); background: #fff9eb; color: #574623; font-size: 12px; line-height: 1.45; margin: 0 0 16px !important; }
+.kvp-enlace-accion { display: inline-block; margin-top: 10px; font-size: 14px; font-weight: 700; text-decoration: none; }
+.kvp-actividad { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 1px solid #cbd8de; display: grid; gap: 14px; }
+.kvp-actividad li { display: grid; gap: 2px; position: relative; }
+.kvp-actividad li::before { content: ''; position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--kv-teal); left: -20px; top: 7px; }
+.kvp-actividad time { color: #526979; font: 11px var(--kv-mono); }
+.kvp-actividad span { font-size: 14px; font-weight: 600; }
+
+@media (max-width: 900px) {
+  .kvp-acceso { grid-template-columns: minmax(0, 1fr) minmax(360px, .9fr); }
+  .kvp-acceso__marca { padding: 32px 28px; }
+  .kvp-acceso__relato { margin-top: 44px; }
+  .kvp-acceso__relato h1 { font-size: clamp(40px, 6vw, 54px); }
+  .kvp-acceso__pasos { grid-template-columns: 1fr; gap: 8px; }
+  .kvp-acceso__pasos small { display: inline; margin-left: 6px; }
+  .kvp-acceso__panel { padding: 28px; }
+}
+@media (max-width: 680px) {
+  .kvp-acceso { display: flex; flex-direction: column; min-height: 100svh; }
+  .kvp-acceso__marca { min-height: 0; padding: 20px 22px 18px; }
+  .kvp-acceso__identidad strong { font-size: 20px; }
+  .kvp-acceso__sello { width: 36px; height: 36px; font-size: 20px; }
+  .kvp-acceso__relato { margin: 25px 0 8px; }
+  .kvp-acceso__eyebrow { margin-bottom: 8px; font-size: 9px; }
+  .kvp-acceso__relato h1 { font-size: clamp(34px, 10vw, 44px); }
+  .kvp-acceso__intro { font-size: 14px; line-height: 1.42; margin-top: 10px !important; max-width: 430px; }
+  .kvp-acceso__grafica { width: min(100%, 310px); height: 74px; overflow: hidden; margin: 2px auto 6px; }
+  .kvp-acceso__grafica svg { transform: translateY(-30%); }
+  .kvp-acceso__pasos { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-top: 11px; gap: 5px; }
+  .kvp-acceso__pasos li { gap: 5px; }
+  .kvp-acceso__pasos li > span { font-size: 10px; }
+  .kvp-acceso__pasos b { font-size: 11px; }
+  .kvp-acceso__pasos small { display: none; }
+  .kvp-acceso__panel { min-height: 0; display: block; padding: 24px 22px 34px; }
+  .kvp-acceso__panel-inner { max-width: 480px; margin: 0 auto; }
+  .kvp-acceso__privado { margin-bottom: 18px; font-size: 11px; }
+  .kvp-acceso__panel h2 { font-size: 26px; }
+  .kvp-acceso__panel form { margin-top: 18px; }
+  .kvp-acceso label { margin-top: 12px; }
+  .kvp-acceso input,.kvp-acceso .kvp-boton { min-height: 50px; }
+  .kvp-acceso .kvp-boton { margin-top: 16px; }
+  .kvp-acceso__interes { margin-top: 25px; padding-top: 17px; }
+}

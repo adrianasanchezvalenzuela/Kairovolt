@@ -24,7 +24,12 @@ export interface MapeoZoho {
     patronEnNombre: RegExp;
   };
   crm: {
-    deals: { modulo: string; campos: { nombre: string; etapa: string; cuenta: string; contacto: string; descripcion: string; fechaCierre: string } };
+    deals: {
+      modulo: string;
+      campos: { nombre: string; etapa: string; cuenta: string; contacto: string; descripcion: string; fechaCierre: string };
+      /** Para crear tratos desde KairóVolt (upsert por folio). `etapaInicial` null = NO se crean tratos: solo se reutilizan los que ya existen. */
+      crear: { etapaInicial: string | null; diasHastaCierre: number };
+    };
     accounts: { modulo: string; campos: { nombre: string; telefono: string; ciudad: string; estado: string } };
     contacts: { modulo: string; campos: { nombre: string; correo: string; telefono: string } };
     /** Notas del trato donde se registran las observaciones sincronizadas. */
@@ -38,6 +43,13 @@ export interface MapeoZoho {
       patronCompuerta: RegExp;
     };
     estadosCompuerta: Record<EstadoCompuerta, EstadoTareaZoho>;
+    /** Cómo se ESCRIBE en Projects (crear proyectos, listas y tareas). Los cuerpos están en `mapper.ts`; ajustar allá si la API de tu cuenta difiere. */
+    escritura: {
+      /** Las fechas se mandan como mediodía local convertido a UTC (así Zoho las muestra en el día correcto). Hermosillo = -7. */
+      desfaseHorasFechas: number;
+      /** Dependencias entre tareas: desactivadas hasta confirmar la API en tu cuenta. */
+      dependenciasHabilitadas: boolean;
+    };
     /** Cuerpo del PATCH que cambia el estado de una tarea. Ajustar si la API de Projects de tu cuenta difiere. */
     cuerpoCambioEstado: (idEstado: string) => Record<string, unknown>;
   };
@@ -53,6 +65,7 @@ export const MAPEO_ZOHO: MapeoZoho = {
     deals: {
       modulo: 'Deals',
       campos: { nombre: 'Deal_Name', etapa: 'Stage', cuenta: 'Account_Name', contacto: 'Contact_Name', descripcion: 'Description', fechaCierre: 'Closing_Date' },
+      crear: { etapaInicial: null, diasHastaCierre: 60 },
     },
     accounts: {
       modulo: 'Accounts',
@@ -77,6 +90,7 @@ export const MAPEO_ZOHO: MapeoZoho = {
       liberada: { nombres: ['Closed', 'Completed', 'Done'], id: '2732681000000016071' },
       bloqueada: { nombres: ['On Hold', 'Blocked'], id: null },
     },
+    escritura: { desfaseHorasFechas: -7, dependenciasHabilitadas: false },
     cuerpoCambioEstado: (idEstado) => ({ status: { id: idEstado } }),
   },
 };

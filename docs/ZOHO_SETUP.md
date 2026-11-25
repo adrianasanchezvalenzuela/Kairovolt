@@ -46,6 +46,13 @@ Genera un `ADMIN_TOKEN` en PowerShell:
    ZohoCRM.modules.ALL,ZohoCRM.settings.modules.READ,ZohoProjects.portals.READ,ZohoProjects.projects.ALL,ZohoProjects.tasks.ALL
    ```
 
+   Para la **integración completa** (adaptadores de la sección 11: listas de tareas, usuarios de Projects, campos de CRM y WorkDrive)
+   agrega estos scopes y **genera de nuevo el refresh token** (un refresh token no gana scopes después de creado):
+
+   ```
+   ZohoProjects.tasklists.ALL,ZohoProjects.users.READ,ZohoCRM.settings.fields.READ,WorkDrive.files.ALL,WorkDrive.team.READ
+   ```
+
    Si la consola no acepta algún scope, busca el equivalente en la documentación de Zoho; con menos permisos fallarán solo las
    operaciones que los necesitan.
 3. **Time Duration:** 10 minutos. **Scope Description:** `KairoVolt`. Pulsa **Create** y copia el código (`1000.xxxx...`).
@@ -201,6 +208,39 @@ Consulta el mapeo activo con `GET /api/admin/zoho/mapeo`. Reinicia `npm run dev`
      debería notarse; con mucho, habría que cachear el token en un almacén compartido.
   4. Verifica el modo de ejecución de las funciones de tu proyecto y que `/api/integracion/estado` responda antes de usar el login.
 
+## 11. Integración por adaptadores (CRM + Projects + WorkDrive)
+
+La capa `server/zoho/*-adapter.ts` implementa los puertos de `src/application/integracion/puertos.ts` (el dominio no conoce a Zoho).
+`ZohoClient` (`cliente.ts`) aporta OAuth 2.0, reintentos con espera creciente y `Retry-After`, y errores clasificados; `ZohoMapper`
+(`mapper.ts`) traduce entre KairóVolt y Zoho. Los secretos viven solo en `server/.env`; el navegador nunca ve un token de Zoho.
+
+**Estados que muestra la API (`GET /api/admin/integracion/estado`):**
+
+| Modo | Significa |
+| --- | --- |
+| `real` — «CONECTADO A ZOHO» | Hay credenciales; los servicios sin configurar (Projects sin portal, WorkDrive sin carpeta raíz) aparecen en `servicios` como `false`. |
+| `demo` — «DEMO — NO CONECTADO» | Sin credenciales: adaptadores en memoria con ids `demo-…`. No se llama a Zoho ni se finge haberlo hecho; escribir de verdad se rechaza (422). |
+
+**Sincronizar un proyecto** — `POST /api/admin/integracion/sincronizar-proyecto` (permiso `sincronizar_zoho`):
+`{ folio, nombre, descripcion?, tareas: [{clave: G0–G3, nombre, inicioPlan?, finPlan?, responsableCorreo?, predecesora?}], subcarpetas?, simular?, forzar? }`.
+
+- **Por defecto simula** (`simular` es `true`): lee Zoho de verdad pero no escribe, y dice qué haría. Para escribir envía `"simular": false`.
+- **Idempotente:** la clave de cada paso es `folio|destino|operación|huella(contenido)`. Repetir sin cambios no duplica nada (acción `sin_cambios`);
+  `forzar: true` ignora el historial. Un trato, proyecto o carpeta existentes del folio se **reutilizan**, no se pisan.
+- **Bitácora:** cada paso queda en `sincronizaciones` (append-only, migración 006) y las referencias folio→trato/proyecto/carpeta en
+  `referencias_externas`. `GET /api/admin/integracion/registro?folio=` las consulta. Sin Supabase se guardan en memoria (se pierden al reiniciar).
+- **Errores:** `permiso` (falta un scope: no se reintenta), `autenticacion`, `limite`, `servidor`, `red`, `validacion`, `no_encontrado`.
+  Un POST de creación **no** se reintenta tras un corte (podría duplicar); el upsert de CRM sí, porque es idempotente.
+
+**Qué falta verificar contra tu cuenta real (no está probado en vivo):**
+
+1. El refresh token actual no trae los scopes de arriba: hasta regenerarlo, tareas, usuarios y WorkDrive responden con error de categoría `permiso`.
+2. Las formas exactas de los cuerpos al **crear** proyectos, listas, tareas y archivos en Projects v3 y WorkDrive se construyeron según la
+   documentación y se probaron contra simulaciones, no contra Zoho. Ajusta `mapper.ts` si tu cuenta responde distinto.
+3. **Crear tratos en CRM** está apagado hasta definir en `mapeo.ts` la `etapaInicial` (y `folio.campoCrm` si creas un campo para el folio).
+4. **Dependencias de tareas** están apagadas (`dependenciasHabilitadas: false`): el endpoint de Projects no se pudo confirmar.
+5. En Vercel una sincronización larga puede exceder el tiempo de la función; sincroniza por proyecto, no en lote.
+
 ## Si algo falla
 
 | Síntoma | Causa probable |
@@ -208,6 +248,7 @@ Consulta el mapeo activo con `GET /api/admin/zoho/mapeo`. Reinicia `npm run dev`
 | `estado: error … invalid_client` | Client ID/Secret incorrectos o datacenter distinto al de la consola |
 | `estado: error … invalid_code` / refresh token | Código vencido o ya usado, o refresh token revocado: repite el paso 3 |
 | `401/403` de Zoho en `/api/admin/*` | Falta algún scope en el paso 3 |
+| Paso de sincronización con error `permiso` | Faltan scopes de la sección 11: regenera el refresh token con ellos |
 | Login: "Token incorrecto" | El `ADMIN_TOKEN` escrito no coincide con el de `server/.env` (reinicia `npm run dev` tras editarlo) |
 | Login: "Demasiados intentos" | 5 fallos seguidos: espera 1 minuto |
 | Pide iniciar sesión de nuevo | La sesión dura 8 h, o cambiaste el `ADMIN_TOKEN` |

@@ -5,3 +5,16 @@ dist
 !.env.example
 *.local
 .claude/
+
+_local_backups/
+*.pem
+*.p12
+*.pfx
+*.key
+*.crt
+*.jks
+*.keystore
+.vercel/
+*.sql.bak
+*.backup
+*.dump

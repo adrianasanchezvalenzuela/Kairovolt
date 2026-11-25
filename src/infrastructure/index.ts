@@ -1,14 +1,18 @@
 import type { IntegracionRepositorio } from '@/application/integracion';
-import type { PortalClienteRepositorio } from '@/application/portal-cliente';
+import type { PortalRepositorio } from '@/application/portal-acceso';
 import type { CuentaRepositorio } from '@/application/cuenta';
 import type { UsuariosRepositorio } from '@/application/usuarios';
+import type { DecisionesRepositorio } from '@/application/decisiones';
 import { cuentaHttp } from './cuenta-http';
+import { decisionesLocal } from './decisiones-local';
+import type { IntegracionAdminRepositorio } from '@/application/integracion-admin';
+import { integracionAdminHttp } from './integracion-admin-http';
 import { integracionHttp } from './integracion-http';
 import { usuariosHttp } from './usuarios-http';
-import { portalClienteMock } from './portal-cliente.mock';
+import { portalHttp } from './portal-http';
 import { repositorioMock } from './proyecto-repositorio.mock';
 
-export { catalogoRequisitos } from './catalogo';
+export { catalogoRepositorio } from './catalogo';
 export { proyectoRepositorioZoho, sesionHttp as sesionRepositorio, sincronizacionHttp as sincronizacionRepositorio } from './zoho-http';
 
 /**
@@ -16,7 +20,10 @@ export { proyectoRepositorioZoho, sesionHttp as sesionRepositorio, sincronizacio
  * Zoho cuando el backend está conectado y hay sesión; MOCK en cualquier otro caso.
  */
 export const proyectoRepositorioMock = repositorioMock;
-export const portalClienteRepositorio: PortalClienteRepositorio = portalClienteMock;
+export const portalRepositorio: PortalRepositorio = portalHttp;
+export { portalAdminHttp } from './portal-admin-http';
 export const integracionRepositorio: IntegracionRepositorio = integracionHttp;
 export const usuariosRepositorio: UsuariosRepositorio = usuariosHttp;
 export const cuentaRepositorio: CuentaRepositorio = cuentaHttp;
+export const decisionesRepositorio: DecisionesRepositorio = decisionesLocal;
+export const integracionAdminRepositorio: IntegracionAdminRepositorio = integracionAdminHttp;

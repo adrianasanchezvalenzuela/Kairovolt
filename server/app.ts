@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
+import { secureHeaders } from 'hono/secure-headers';
 import { normalizarCorreo, validarContrasena } from '../src/domain/usuarios/credenciales';
 import { puede, type Accion } from '../src/domain/usuarios/permisos';
 import { ROLES_USUARIO, type RolUsuario } from '../src/domain/usuarios/rol';
@@ -12,6 +13,17 @@ import { cambiarMiContrasena, CuentaError, type CodigoCuenta } from './supabase/
 import { autenticarConContrasena, restablecerContrasena, solicitarRecuperacion } from './supabase/login';
 import { buscarPerfilActivo, crearBuscadorPerfiles } from './supabase/perfiles';
 import { actualizarUsuario, crearUsuario, listarUsuarios, UsuarioError, type CodigoUsuario } from './supabase/usuarios';
+import { sincronizarProyecto } from '../src/application/integracion/sincronizar-proyecto';
+import { PERMISOS_PORTAL_POR_DEFECTO, type PermisosPortal } from '../src/application/portal-cliente';
+import { catalogoParaZona, CONFIGURACION_ZONA_POR_DEFECTO } from '../src/domain/checklist/checklist';
+import { hayRequisitosPendientesDeIDC } from '../src/domain/checklist/catalogo';
+import { catalogoDeDemostracion, leerCatalogoSupabase, requisitosChecklist } from './catalogo';
+import { crearAccesosMemoria, crearRecepcionesMemoria, almacenDescarte, fuenteDemo, CODIGO_DEMO } from './portal/memoria';
+import { crearFuenteZoho, fuenteVacia } from './portal/fuente-zoho';
+import { crearRutasPortal } from './portal/rutas';
+import { derivarSecretoPortal } from './portal/sesion';
+import { crearAccesosSupabase, crearAlmacenSupabase, crearRecepcionesSupabase } from './portal/supabase';
+import { crearIntegracion } from './integracion/fabrica';
 import { aProyectoKv } from './zoho/adaptar';
 import { crearZohoAuth, ZohoError, type FetchFn } from './zoho/auth';
 import { crearClienteZoho } from './zoho/cliente';
@@ -57,10 +69,53 @@ const publico = (a: Actor) => ({ correo: a.correo, nombre: a.nombre, rol: a.rol,
 
 export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora: () => number = Date.now) {
   const app = new Hono<Env>();
+  app.use('*', secureHeaders({
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      connectSrc: config.secureCookies ? ["'self'"] : ["'self'", 'ws:', 'wss:'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      objectSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      styleSrcAttr: ["'unsafe-inline'"],
+    },
+    crossOriginResourcePolicy: 'same-origin',
+    strictTransportSecurity: config.secureCookies ? 'max-age=31536000; includeSubDomains' : false,
+    xFrameOptions: 'DENY',
+    referrerPolicy: 'strict-origin-when-cross-origin',
+    permissionsPolicy: { camera: [], microphone: [], geolocation: [] },
+  }));
   const obtenerSesion = config.zoho ? crearZohoAuth(config.zoho, fetchFn) : null;
   const cli = config.zoho && obtenerSesion ? crearClienteZoho(config.zoho, obtenerSesion, fetchFn) : null;
   const sb = config.supabase ? crearClienteSupabase(config.supabase, fetchFn) : null;
   const perfilDe = sb ? crearBuscadorPerfiles(sb, ahora) : null;
+
+  // ---- Portal del cliente. Demo = datos de prueba y todo en memoria (sin Supabase ni Zoho, o PORTAL_MODO_DEMO). ----
+  const portalDemo = config.portalDemo === true || (!cli && !sb);
+  const baseSecretoPortal = config.sessionSecret ?? config.adminToken ?? config.supabase?.secretKey ?? null;
+  const supabasePortal = !portalDemo && sb !== null && config.supabase ? { sb, cfg: config.supabase } : null;
+  const accesosPortal = supabasePortal ? crearAccesosSupabase(supabasePortal.sb, ahora) : crearAccesosMemoria(ahora, portalDemo);
+  const fuentePortal = portalDemo ? fuenteDemo : cli ? crearFuenteZoho(cli) : fuenteVacia;
+  const portal = crearRutasPortal({
+    accesos: accesosPortal,
+    recepciones: supabasePortal ? crearRecepcionesSupabase(supabasePortal.sb) : crearRecepcionesMemoria(ahora),
+    almacen: supabasePortal ? crearAlmacenSupabase(supabasePortal.cfg, fetchFn) : almacenDescarte,
+    fuente: fuentePortal,
+    catalogo: async () => {
+      const catalogo = portalDemo ? catalogoDeDemostracion() : await leerCatalogoSupabase(sb!);
+      return catalogoParaZona(requisitosChecklist(catalogo), CONFIGURACION_ZONA_POR_DEFECTO);
+    },
+    secreto: baseSecretoPortal ? derivarSecretoPortal(baseSecretoPortal) : null,
+    persistencia: { accesos: supabasePortal ? 'supabase' : 'memoria', archivos: supabasePortal ? 'supabase' : 'no_se_guardan' },
+    codigoDemo: portalDemo ? CODIGO_DEMO : null,
+    secureCookies: config.secureCookies,
+    ahora,
+  });
+  app.route('/api/portal', portal);
 
   const metodos = { token: config.adminToken !== null, correo: sb !== null && !!config.supabase?.publishableKey };
   const loginHabilitado = metodos.token || metodos.correo;
@@ -93,8 +148,10 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
     try {
       await obtenerSesion();
       return c.json<RespuestaEstado>({ zoho: 'conectado', detalle: 'Autenticación con Zoho verificada.' });
-    } catch (e) {
-      return c.json<RespuestaEstado>({ zoho: 'error', detalle: e instanceof ZohoError ? e.message : 'Error inesperado' });
+    } catch {
+      // Este endpoint es público y alimenta la selección MOCK/Zoho del cliente.
+      // Los detalles del error de OAuth no deben aparecer en la respuesta.
+      return c.json<RespuestaEstado>({ zoho: 'error', detalle: 'Zoho no está disponible en este momento.' });
     }
   });
 
@@ -105,7 +162,7 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
   });
 
   const iniciar = (c: Context, actor: Actor) => {
-    setCookie(c, COOKIE_SESION, sesiones.crear(actor.uid), { httpOnly: true, sameSite: 'Strict', path: '/', maxAge: DURACION_SESION_S });
+    setCookie(c, COOKIE_SESION, sesiones.crear(actor.uid), { httpOnly: true, secure: config.secureCookies === true, sameSite: 'Strict', path: '/', maxAge: DURACION_SESION_S });
     return c.json({ autenticado: true, usuario: publico(actor) });
   };
 
@@ -153,7 +210,7 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
   });
 
   app.delete('/api/sesion', (c) => {
-    deleteCookie(c, COOKIE_SESION, { path: '/' });
+    deleteCookie(c, COOKIE_SESION, { secure: config.secureCookies === true, sameSite: 'Strict', path: '/' });
     return c.json({ autenticado: false });
   });
 
@@ -248,6 +305,15 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
       return c.json({ error: e instanceof ZohoError ? e.message : 'Error inesperado' }, 502);
     }
   };
+  app.get('/api/admin/catalogo', exigir('ver_datos'), async (c) => {
+    if (portalDemo) return c.json({ requisitos: catalogoDeDemostracion(), demo: true });
+    if (!sb) return c.json({ error: 'supabase_no_configurado', detalle: 'El catálogo documental no está disponible.' }, 503);
+    try {
+      return c.json({ requisitos: await leerCatalogoSupabase(sb, false), demo: false });
+    } catch {
+      return c.json({ error: 'catalogo_no_disponible', detalle: 'No se pudo consultar el catálogo documental.' }, 503);
+    }
+  });
   const folioQuery = (c: Context) => {
     const folio = c.req.query('folio');
     return folio && !FOLIO.test(folio) ? ('invalido' as const) : (folio ?? undefined);
@@ -284,6 +350,13 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
       const compuerta = en(COMPUERTAS, b?.compuerta);
       const estado = en(ESTADOS, b?.estado);
       if (!folio || !FOLIO.test(folio) || !compuerta || !estado) return c.json({ error: 'datos_invalidos' }, 400);
+      if (estado === 'liberada' && b?.simular !== true) {
+        if (!sb) return c.json({ error: 'catalogo_no_disponible', detalle: 'No se puede validar el catálogo antes de liberar la compuerta.' }, 503);
+        let catalogo;
+        try { catalogo = await leerCatalogoSupabase(sb); }
+        catch { return c.json({ error: 'catalogo_no_disponible', detalle: 'No se pudo validar el catálogo antes de liberar la compuerta.' }, 503); }
+        if (hayRequisitosPendientesDeIDC(catalogo)) return c.json({ error: 'catalogo_pendiente_idc', detalle: 'IDC debe validar el catálogo documental antes de liberar una compuerta.' }, 409);
+      }
       const r = await sincronizarCompuerta(cli!, { folio, compuerta, estado, simular: b?.simular === true });
       const auditado = r.resultado === 'sincronizado' ? await auditarSync(c.get('actor'), folio, 'compuerta_sincronizada', { compuerta, estado }) : undefined;
       return c.json({ ...r, ...(auditado !== undefined && { auditado }) });
@@ -308,6 +381,89 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
       });
       const auditado = r.resultado === 'sincronizado' ? await auditarSync(c.get('actor'), folio, 'observacion_sincronizada', { observacionId, compuerta, estado }) : undefined;
       return c.json({ ...r, ...(auditado !== undefined && { auditado }) });
+    }));
+
+  // ---- Integración Zoho por adaptadores (CRM + Projects + WorkDrive). Sin credenciales: DEMO, claramente etiquetado, sin llamadas reales. ----
+  app.use('/api/admin/integracion/*', exigir('sincronizar_zoho'));
+  const integracion = crearIntegracion({ cli, sb, workdriveRootId: config.zoho?.workdriveRootId ?? null, ahora: () => new Date(ahora()).toISOString() });
+
+  app.get('/api/admin/integracion/estado', (c) =>
+    c.json({ modo: integracion.modo, etiqueta: integracion.etiqueta, persistencia: integracion.persistencia, servicios: integracion.servicios }));
+
+  app.get('/api/admin/integracion/registro', (c) =>
+    conErrores(c, async () => {
+      const folio = folioQuery(c);
+      if (folio === 'invalido') return c.json({ error: 'folio_invalido' }, 400);
+      return c.json({ modo: integracion.modo, registros: await integracion.deps.registro.recientes({ folio, limite: 100 }) });
+    }));
+
+  /** Body: { folio, nombre, descripcion?, tareas[], subcarpetas[], simular? (por defecto TRUE), forzar? }. Escribir de verdad exige simular:false. */
+  app.post('/api/admin/integracion/sincronizar-proyecto', (c) =>
+    conErrores(c, async () => {
+      const b = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+      const folio = str(b?.folio, 40);
+      const nombre = str(b?.nombre, 200);
+      if (!folio || !FOLIO.test(folio) || !nombre || !Array.isArray(b?.tareas) || b.tareas.length > 50) return c.json({ error: 'datos_invalidos' }, 400);
+      const fecha = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+      const tareas = [];
+      for (const t of b.tareas as Record<string, unknown>[]) {
+        const clave = en(COMPUERTAS, t?.clave);
+        const nom = str(t?.nombre, 200);
+        if (!clave || !nom) return c.json({ error: 'datos_invalidos', detalle: 'Cada tarea necesita una clave de compuerta (G0–G3) y un nombre.' }, 400);
+        tareas.push({ clave, nombre: nom, inicioPlan: fecha(t.inicioPlan), finPlan: fecha(t.finPlan), responsableCorreo: str(t.responsableCorreo, 200), predecesora: en(COMPUERTAS, t.predecesora) ?? null });
+      }
+      const subcarpetas = Array.isArray(b.subcarpetas) ? b.subcarpetas.map((s) => str(s, 60)).filter((s): s is string => s !== null).slice(0, 20) : [];
+      const simular = b.simular !== false;
+      if (!simular && integracion.modo === 'demo') return c.json({ error: 'demo_no_conectado', detalle: integracion.etiqueta }, 422);
+      const r = await sincronizarProyecto(integracion.deps, { folio: folio.toUpperCase(), nombre, descripcion: str(b.descripcion), tareas, subcarpetas }, { simular, forzar: b.forzar === true });
+      const auditado = !simular && integracion.modo === 'real' ? await auditarSync(c.get('actor'), folio, 'proyecto_sincronizado', { ok: r.ok, pasos: r.pasos.length }) : undefined;
+      return c.json({ ...r, etiqueta: integracion.etiqueta, ...(auditado !== undefined && { auditado }) });
+    }));
+
+  // ---- Accesos del portal del cliente (los genera y revoca el personal; el código en claro se muestra UNA vez). ----
+  app.use('/api/admin/portal/*', exigir('gestionar_portal'));
+  const FOLIO_PORTAL = /^KV-(\d{4}|MOCK)-\d{3,}$/;
+  const auditarPortal = async (actor: Actor, folio: string | null, accion: string, detalles: Record<string, unknown>) =>
+    sb ? registrarEvento(sb, actor, { entidad: 'portal_acceso', folio, accion, detalles }) : undefined;
+
+  /** Body: { folio, dias? (1–365, por defecto 90), permisos? }. Devuelve el código y un enlace; el código NO se vuelve a mostrar. */
+  app.post('/api/admin/portal/accesos', (c) =>
+    conErrores(c, async () => {
+      const b = (await c.req.json().catch(() => null)) as { folio?: unknown; dias?: unknown; permisos?: Partial<PermisosPortal> } | null;
+      const folio = typeof b?.folio === 'string' ? b.folio.trim().toUpperCase() : '';
+      if (!FOLIO_PORTAL.test(folio)) return c.json({ error: 'folio_invalido' }, 400);
+      const dias = b?.dias === undefined ? 90 : Number(b.dias);
+      if (!Number.isInteger(dias) || dias < 1 || dias > 365) return c.json({ error: 'datos_invalidos', detalle: 'Los días de vigencia deben ser de 1 a 365.' }, 400);
+      const p = b?.permisos ?? {};
+      const permisos: PermisosPortal = {
+        ver_progreso: p.ver_progreso !== false, ver_documentos_autorizados: p.ver_documentos_autorizados ?? PERMISOS_PORTAL_POR_DEFECTO.ver_documentos_autorizados,
+        subir_documentos: p.subir_documentos ?? PERMISOS_PORTAL_POR_DEFECTO.subir_documentos,
+      };
+      if (!(await fuentePortal.obtener(folio).catch(() => null))) return c.json({ error: 'proyecto_no_encontrado', detalle: 'No existe un proyecto con ese folio en la fuente de datos.' }, 404);
+      const actor = c.get('actor');
+      const { acceso, codigo } = await accesosPortal.crear(folio, { permisos, dias, creadoPor: actor.uid });
+      const auditado = await auditarPortal(actor, folio, 'acceso_portal_creado', { accesoId: acceso.id, dias, permisos });
+      const base = config.appUrl ?? new URL(c.req.url).origin;
+      // El enlace lleva el código en el FRAGMENTO (#): el navegador no lo envía a ningún servidor ni queda en bitácoras.
+      return c.json({ acceso, codigo, enlace: `${base}/portal#folio=${encodeURIComponent(folio)}&codigo=${encodeURIComponent(codigo)}`, ...(auditado !== undefined && { auditado }) }, 201);
+    }));
+
+  app.get('/api/admin/portal/accesos', (c) =>
+    conErrores(c, async () => {
+      const folio = (c.req.query('folio') ?? '').trim().toUpperCase();
+      if (!FOLIO_PORTAL.test(folio)) return c.json({ error: 'folio_invalido' }, 400);
+      return c.json({ accesos: await accesosPortal.listar(folio), persistencia: supabasePortal ? 'supabase' : 'memoria', demo: portalDemo });
+    }));
+
+  app.delete('/api/admin/portal/accesos/:id', (c) =>
+    conErrores(c, async () => {
+      const id = c.req.param('id');
+      if (!/^[\w-]{8,64}$/.test(id)) return c.json({ error: 'datos_invalidos' }, 400);
+      const actor = c.get('actor');
+      const ok = await accesosPortal.revocar(id, actor.uid);
+      if (!ok) return c.json({ error: 'no_encontrado' }, 404);
+      const auditado = await auditarPortal(actor, null, 'acceso_portal_revocado', { accesoId: id });
+      return c.json({ ok: true, ...(auditado !== undefined && { auditado }) });
     }));
 
   // ---- Usuarios del personal (Supabase Auth + tabla perfiles). Solo administradores. Las contraseñas nunca se registran. ----

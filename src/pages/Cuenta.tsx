@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { AlertPanel } from '@/components/ui/AlertPanel';
 import { Link } from 'react-router-dom';
 import { ErrorCuenta } from '@/application/cuenta';
 import { validarContrasena } from '@/domain/usuarios/credenciales';
@@ -70,7 +71,7 @@ export function Cuenta() {
           <p><button type="submit" disabled={deshabilitado} style={{ ...boton, opacity: deshabilitado ? 0.5 : 1 }}>{enviando ? 'Guardando…' : 'Cambiar contraseña'}</button></p>
         </form>
       )}
-      {aviso && <p role={aviso.tipo === 'error' ? 'alert' : 'status'} style={{ color: aviso.tipo === 'error' ? 'var(--kv-error)' : 'var(--kv-ok)' }}>{aviso.texto}</p>}
+      {aviso && <AlertPanel tono={aviso.tipo === 'error' ? 'error' : 'ok'}>{aviso.texto}</AlertPanel>}
     </>
   );
 }

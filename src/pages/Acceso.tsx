@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { AlertPanel } from '@/components/ui/AlertPanel';
 import { Navigate, useNavigate } from 'react-router-dom';
 import type { ResultadoInicioSesion } from '@/application/integracion';
 import { ErrorCuenta } from '@/application/cuenta';
@@ -61,7 +62,7 @@ export function Acceso() {
     return (
       <>
         <h1>Iniciar sesión</h1>
-        <p role="alert" style={{ color: 'var(--kv-error)' }}>El acceso no está configurado en el backend (falta SUPABASE_PUBLISHABLE_KEY o ADMIN_TOKEN en server/.env).</p>
+        <AlertPanel tono="error">El acceso no está configurado en el backend (falta SUPABASE_PUBLISHABLE_KEY o ADMIN_TOKEN en server/.env).</AlertPanel>
       </>
     );
   }
@@ -86,7 +87,7 @@ export function Acceso() {
           <input id="correo-rec" type="email" value={correoRecuperacion} onChange={(e) => setCorreoRecuperacion(e.target.value)} autoComplete="username" required style={campo} />
           <p><button type="submit" disabled={enviando || correoRecuperacion === ''} style={boton}>{enviando ? 'Enviando…' : 'Enviar enlace'}</button>{' '}
             <button type="button" onClick={() => { setRecuperando(false); setRecuperacion(null); }}>Volver</button></p>
-          {recuperacion && <p role={recuperacion.tipo === 'error' ? 'alert' : 'status'} style={{ color: recuperacion.tipo === 'error' ? 'var(--kv-error)' : 'var(--kv-ok)' }}>{recuperacion.texto}</p>}
+          {recuperacion && <AlertPanel tono={recuperacion.tipo === 'error' ? 'error' : 'ok'}>{recuperacion.texto}</AlertPanel>}
         </form>
       )}
       {sesion.metodos.correo && !recuperando && (
@@ -100,7 +101,7 @@ export function Acceso() {
           <p style={{ fontSize: 13 }}><button type="button" onClick={() => { setRecuperando(true); setCorreoRecuperacion(correo); setError(null); }} style={{ background: 'none', border: 0, padding: 0, color: 'var(--kv-teal)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>¿Olvidaste tu contraseña?</button></p>
         </form>
       )}
-      {error && <p role="alert" style={{ color: 'var(--kv-error)' }}>{error}</p>}
+      {error && <AlertPanel tono="error">{error}</AlertPanel>}
       {sesion.metodos.token && (sesion.metodos.correo
         ? <details style={{ marginTop: 24 }}><summary className="kv-suave" style={{ cursor: 'pointer' }}>Acceso de emergencia con token</summary>{formToken}</details>
         : <>

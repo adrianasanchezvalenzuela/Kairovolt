@@ -155,7 +155,7 @@ describe('rutas admin', () => {
     expect((await post({ folio: 'KV-2026-004', compuerta: 'G9', estado: 'liberada' })).status).toBe(400);
     const sim = await post({ folio: 'KV-2026-004', compuerta: 'G2', estado: 'en_revision', simular: true });
     expect(await sim.json()).toMatchObject({ resultado: 'simulado' });
-    expect((await post({ folio: 'KV-2026-999', compuerta: 'G0', estado: 'liberada' })).status).toBe(404);
+    expect((await post({ folio: 'KV-2026-999', compuerta: 'G0', estado: 'liberada' })).status).toBe(503); // no autoriza liberación sin catálogo canónico disponible
     expect((await post({ folio: 'KV-2026-004', compuerta: 'G2', estado: 'bloqueada' })).status).toBe(422);
   });
 

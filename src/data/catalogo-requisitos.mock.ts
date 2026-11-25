@@ -1,6 +1,6 @@
-import type { CanalEntrega, Requisito } from '@/domain/checklist/checklist';
-import type { CompuertaId } from '@/domain/compuertas/compuerta';
-import type { TipoDocumento } from '@/domain/documentos/documento';
+import type { CanalEntrega, Requisito } from '../domain/checklist/checklist';
+import type { CompuertaId } from '../domain/compuertas/compuerta';
+import type { TipoDocumento } from '../domain/documentos/documento';
 
 /**
  * Catálogo base G0–G3 según la definición de IDC (requisitos de interconexión MT/CFE e inspección UIIE).
@@ -17,8 +17,11 @@ const r = (
   extra: { canal?: CanalEntrega; condicion?: string; reubicablePorZona?: boolean; requiereVigencia?: boolean; aportaCliente?: boolean } = {},
 ): Requisito => ({
   id: `r-${tipo}`,
+  codigo: `KV_${tipo.toUpperCase()}`,
   tipo,
   nombre,
+  descripcion: nombre,
+  categoria: compuerta === 'G0' ? 'solicitud' : compuerta === 'G1' ? 'cliente' : compuerta === 'G2' ? 'tecnico' : 'dictamen',
   compuerta,
   obligatorio: extra.condicion === undefined,
   canal: extra.canal ?? 'digital',
@@ -26,6 +29,13 @@ const r = (
   ...(extra.reubicablePorZona && { reubicablePorZona: true }),
   ...(extra.requiereVigencia && { requiereVigencia: true }),
   ...(extra.aportaCliente && { aportaCliente: true }),
+  quienAporta: extra.aportaCliente ? 'cliente' : 'pendiente',
+  instruccionesCliente: extra.aportaCliente ? 'Instrucciones pendientes de validación por IDC.' : null,
+  camposEsperados: [],
+  ejemplosAutorizados: [],
+  generacionAutomatica: false,
+  activo: true,
+  validacionIdc: 'pendiente',
 });
 
 export const catalogoRequisitosBase: readonly Requisito[] = [
