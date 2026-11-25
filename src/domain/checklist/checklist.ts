@@ -1,6 +1,7 @@
 import { evaluarBloqueoCompuerta } from '../compuertas/bloqueo';
 import { ORDEN_COMPUERTAS, type Compuerta, type CompuertaId } from '../compuertas/compuerta';
 import type { DocumentoExpediente, TipoDocumento } from '../documentos/documento';
+import type { GuiaPreparacion, RevisionDigital } from './preparacion';
 
 /** `fisico` = requiere impresión, firma autógrafa o entrega en oficina/ventanilla. */
 export type CanalEntrega = 'digital' | 'fisico';
@@ -15,6 +16,8 @@ export interface CondicionAplicacion {
 
 /** Requisito documental de una compuerta (definido por catálogo, no por proyecto). */
 export interface Requisito {
+  guiaPreparacion?: GuiaPreparacion;
+  revisionDigital?: RevisionDigital;
   id: string;
   codigo?: string;
   tipo: TipoDocumento;

@@ -52,12 +52,16 @@ const obl002: Evaluador = (ctx, r) => {
   return [...pendientesIDC, ...faltantes.map(({ requisito }) => {
     const revision = ctx.revisionDocumental?.[requisito.tipo];
     const mensaje = revision === 'recibido' ? 'Recibido y pendiente de revisión' :
-      revision === 'en_revision' ? 'En revisión por IDC' :
+      revision === 'en_revision' ? 'En revisión por IDC' : revision === 'prevalidado' ? 'Copia prevalidada, pendiente de validación definitiva' :
+      revision === 'preparado' ? 'Preparado por el cliente, pendiente de recepción' :
+      revision === 'entregado' ? 'Recibido físicamente, pendiente de validar' :
+      revision === 'validado_fisico' ? 'Validado físicamente, sin evidencia digital para el motor' :
       revision === 'rechazado' ? 'Requiere corrección' : 'Falta el documento obligatorio';
     return crearResultado(regla, {
       resultado: 'no_cumple', campo: `documento:${requisito.tipo}`, clave: requisito.tipo, compuerta: requisito.compuerta,
       valorEsperado: requisito.nombre, explicacion: `${mensaje} «${requisito.nombre}» (${requisito.compuerta}).`,
-      accionRecomendada: revision === 'recibido' || revision === 'en_revision' ? 'Revisa el envío en la bandeja IDC.' :
+      accionRecomendada: revision === 'prevalidado' ? 'Confirma la recepción física y la validación definitiva.' :
+        revision === 'recibido' || revision === 'en_revision' ? 'Revisa el envío en la bandeja IDC.' :
         revision === 'rechazado' ? 'Espera el reenvío y revisa la nueva versión.' :
         requisito.aportaCliente ? 'Solicítalo al cliente.' : 'Intégralo al expediente.',
     });

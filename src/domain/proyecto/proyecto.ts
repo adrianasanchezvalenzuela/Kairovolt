@@ -33,7 +33,7 @@ export interface Proyecto {
   /** false = la fuente no trae el expediente: no se puede evaluar checklist, hallazgos ni carpeta física. */
   documentosDisponibles: boolean;
   /** Última decisión documental del portal por tipo. Los archivos pendientes quedan fuera de los datos aceptados. */
-  revisionDocumental?: Partial<Record<TipoDocumento, 'recibido' | 'en_revision' | 'aceptado' | 'rechazado'>>;
+  revisionDocumental?: Partial<Record<TipoDocumento, 'preparado' | 'recibido' | 'en_revision' | 'prevalidado' | 'entregado' | 'validado_fisico' | 'aceptado' | 'rechazado'>>;
   decisionesExpediente?: {
     resoluciones: { id: string; campo: string; documento: string; decision: string; fecha: string }[];
     aprobacionesG2: { id: string; version: number; resultado: string; fecha: string }[];

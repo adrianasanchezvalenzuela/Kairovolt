@@ -1,5 +1,6 @@
 import { ErrorPortal, type CodigoErrorPortal, type EstadoPortal, type PortalRepositorio, type ResultadoSubida, type VistaPortalConEstado } from '@/application/portal-acceso';
 import type { VersionParticipantes } from '@/application/participantes';
+import type { ProgresoPreparacion } from '@/domain/checklist/preparacion';
 
 const CSRF = { 'X-Requested-With': 'kairovolt' };
 const rutaPortal = () => import.meta.env.DEV && window.location.pathname.startsWith('/demo/portal')
@@ -39,6 +40,36 @@ export async function datosPortal(entrada?: VersionParticipantes): Promise<Versi
   const { status, data } = await llamar(entrada ? 'POST' : 'GET', rutaPortal() + '/participantes', entrada);
   if (status !== 200) throw errorDeRespuesta(status, data);
   return data.actual as VersionParticipantes | null;
+}
+
+export async function listarPreparacionPortal(): Promise<ProgresoPreparacion[]> {
+  const { status, data } = await llamar('GET', rutaPortal() + '/preparacion');
+  if (status !== 200) throw errorDeRespuesta(status, data);
+  return data.progreso as ProgresoPreparacion[];
+}
+
+export async function guardarPreparacionPortal(p: ProgresoPreparacion): Promise<ProgresoPreparacion> {
+  const { status, data } = await llamar('POST', rutaPortal() + '/preparacion/' + encodeURIComponent(p.documento), p);
+  if (status !== 200) throw errorDeRespuesta(status, data);
+  return data as unknown as ProgresoPreparacion;
+}
+
+export async function descargarCartaDemo(): Promise<void> {
+  const r = await fetch(rutaPortal() + '/carta-poder-demo', { method: 'POST', headers: CSRF, credentials: 'same-origin' });
+  if (!r.ok) throw errorDeRespuesta(r.status, await r.json().catch(() => ({})) as Record<string, unknown>);
+  const url = URL.createObjectURL(await r.blob());
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = 'carta-poder-demostracion.pdf';
+  enlace.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function historialCartasPortal(): Promise<{ href: string; plantilla: string; generado_en: string }[]> {
+  const { status, data } = await llamar('GET', rutaPortal() + '/carta-poder-demo');
+  if (status !== 200) throw errorDeRespuesta(status, data);
+  const historial = data.historial as { id: string; plantilla: string; generado_en: string }[];
+  return historial.map((r) => ({ ...r, href: rutaPortal() + '/carta-poder-demo/' + encodeURIComponent(r.id) }));
 }
 
 export const portalHttp: PortalRepositorio = {

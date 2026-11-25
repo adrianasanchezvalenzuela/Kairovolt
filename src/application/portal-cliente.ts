@@ -5,6 +5,7 @@ import type { Proyecto } from '../domain/proyecto/proyecto';
 import { calcularAvance, REGLAS_AVANCE } from '../domain/portal/avance';
 import { ESTADO_CLIENTE, ETAPA_CLIENTE, HITO_PUBLICO } from '../domain/portal/textos';
 import { evaluarVigencias } from '../domain/vigencias/vigencias';
+import type { GuiaPreparacion, RevisionDigital } from '../domain/checklist/preparacion';
 
 /**
  * PROYECCIÓN PÚBLICA del portal del cliente. Es lo ÚNICO que sale del servidor hacia el cliente.
@@ -13,7 +14,7 @@ import { evaluarVigencias } from '../domain/vigencias/vigencias';
  * otros clientes ni identificadores de Zoho.
  */
 
-export type EstadoDocumentoCliente = 'pendiente' | 'en_revision' | 'recibido' | 'aceptado' | 'rechazado' | 'vencido' | 'por_vencer' | 'no_aplica';
+export type EstadoDocumentoCliente = 'pendiente' | 'en_revision' | 'recibido' | 'prevalidado' | 'aceptado' | 'rechazado' | 'vencido' | 'por_vencer' | 'no_aplica';
 export type ResponsablePaso = 'cliente' | 'idc' | 'cfe';
 
 export interface DocumentoSolicitado {
@@ -30,6 +31,9 @@ export interface DocumentoSolicitado {
 }
 
 export interface GuiaDocumentoCliente {
+  generacionAutomatica?: boolean;
+  guiaPreparacion?: GuiaPreparacion;
+  revisionDigital?: RevisionDigital;
   id: string;
   nombre: string;
   descripcion: string | null;
@@ -55,7 +59,7 @@ export interface Recepcion {
   archivo: string;
   /** ISO con hora. */
   fecha: string;
-  estado: 'recibido' | 'en_revision' | 'aceptado' | 'rechazado';
+  estado: 'recibido' | 'en_revision' | 'prevalidado' | 'aceptado' | 'rechazado';
   /** Motivo redactado por IDC para el cliente cuando se rechaza. */
   motivo: string | null;
   causa?: string | null;
@@ -89,6 +93,7 @@ export interface VistaPortal {
   /** null = el acceso no incluye ver documentos. */
   documentos: DocumentoSolicitado[] | null;
   guiaDocumental: GuiaDocumentoCliente[] | null;
+  documentosTecnicos?: { id: string; nombre: string; responsable: 'idc' | 'tercero'; enExpediente: boolean }[];
   recepciones: Recepcion[];
   notificaciones: Notificacion[];
   historial: EventoPublico[];
@@ -107,7 +112,7 @@ export const PERMISOS_PORTAL_POR_DEFECTO: PermisosPortal = { ver_progreso: true,
 export const normalizarFolio = (folio: string): string => folio.trim().toUpperCase();
 
 const NECESITA_ACCION: readonly EstadoDocumentoCliente[] = ['pendiente', 'rechazado', 'vencido'];
-const PUEDE_SUBIR: readonly EstadoDocumentoCliente[] = ['pendiente', 'rechazado', 'vencido', 'por_vencer'];
+const PUEDE_SUBIR: readonly EstadoDocumentoCliente[] = ['pendiente', 'rechazado', 'vencido', 'por_vencer', 'prevalidado'];
 const MAX_NOTIFICACIONES = 30;
 
 export interface EntradaVista {
@@ -144,18 +149,20 @@ export function construirVistaPortal({ proyecto: p, catalogo, hoy, recepciones, 
     if (rec?.estado === 'rechazado') { estado = 'rechazado'; detalle = rec.motivo ?? 'IDC pidió que lo envíes de nuevo.'; }
     else if (rec?.estado === 'recibido') { estado = 'en_revision'; detalle = 'Recibimos tu archivo. Está en espera de revisión por IDC.'; }
     else if (rec?.estado === 'en_revision') { estado = 'en_revision'; detalle = 'IDC está revisando tu archivo.'; }
+    else if (rec?.estado === 'prevalidado') { estado = 'prevalidado'; detalle = 'IDC prevalidó esta copia. La validación definitiva se registra por separado.'; }
     else if (rec?.estado === 'aceptado') estado = 'aceptado';
     else if (doc) {
-      if (vig?.subtipo === 'vencido') { estado = 'vencido'; detalle = 'El documento está vencido: envía uno vigente.'; }
+      if (vig?.subtipo === 'vencido') { estado = 'vencido'; detalle = 'El documento está vencido. Prepara una versión vigente.'; }
       else if (vig?.subtipo === 'por_vencer') { estado = 'por_vencer'; detalle = 'Está por vencer: ten listo uno actualizado.'; }
       else estado = 'recibido';
     } else estado = aplicabilidad === 'no_aplica' ? 'no_aplica' : 'pendiente';
     const condicionActiva = !!req.condicion || !!req.condicionesAplicacion?.length;
     return { id: req.tipo, nombre: req.nombre, etapa: req.compuerta, estado, detalle,
-      puedeSubir: permisos.subir_documentos && (!condicionActiva || aplicabilidad === 'aplica') && PUEDE_SUBIR.includes(estado),
+      puedeSubir: permisos.subir_documentos && req.revisionDigital !== 'no_disponible' && (!condicionActiva || aplicabilidad === 'aplica') && PUEDE_SUBIR.includes(estado),
       vigencia: doc?.fechaVigencia ?? null };
   });
   const guiaDocumental: GuiaDocumentoCliente[] = catalogo.filter((r) => r.activo !== false && r.aportaCliente).map((r) => ({
+    guiaPreparacion: r.guiaPreparacion, revisionDigital: r.revisionDigital, generacionAutomatica: r.generacionAutomatica,
     id: r.tipo, nombre: r.nombre, descripcion: r.descripcion ?? null, etapa: r.compuerta, condicion: r.condicion ?? null,
     canal: r.canal, requiereVigencia: r.requiereVigencia === true, quienAporta: r.quienAporta ?? 'cliente',
     instrucciones: r.instruccionesCliente ?? null, camposEsperados: r.camposEsperados ?? [], ejemplosAutorizados: r.ejemplosAutorizados ?? [],
@@ -186,7 +193,8 @@ export function construirVistaPortal({ proyecto: p, catalogo, hoy, recepciones, 
   for (const r of recepciones) {
     notificaciones.push(r.estado === 'rechazado'
       ? { id: `n:rechazo:${r.recibo}`, tipo: 'accion', titulo: `Necesitamos que vuelvas a enviar «${r.documento}»`, detalle: r.motivo, fecha: r.fecha }
-      : { id: `n:recepcion:${r.recibo}`, tipo: 'recepcion', titulo: r.estado === 'aceptado' ? `Aceptamos «${r.documento}»` : `Recibimos «${r.documento}»`, detalle: `Acuse ${r.recibo}`, fecha: r.fecha });
+      : { id: `n:recepcion:${r.recibo}`, tipo: 'recepcion', titulo: r.estado === 'aceptado' ? `Validamos «${r.documento}» en el expediente` :
+        r.estado === 'prevalidado' ? `Prevalidamos la copia de «${r.documento}»` : `Recibimos «${r.documento}»`, detalle: `Acuse ${r.recibo}`, fecha: r.fecha });
   }
   if (permisos.ver_documentos_autorizados) {
     if (porHacer.length > 0) notificaciones.push({ id: 'n:pendientes', tipo: 'accion', titulo: porHacer.length === 1 ? 'Tienes 1 documento por entregar' : `Tienes ${porHacer.length} documentos por entregar`, detalle: porHacer.map((d) => d.nombre).join(' · '), fecha: hoy });
@@ -220,6 +228,9 @@ export function construirVistaPortal({ proyecto: p, catalogo, hoy, recepciones, 
     siguientePaso,
     documentos: permisos.ver_documentos_autorizados ? documentos : null,
     guiaDocumental: permisos.ver_documentos_autorizados ? guiaDocumental : null,
+    documentosTecnicos: permisos.ver_documentos_autorizados ? catalogo.flatMap((r) =>
+      r.activo !== false && !r.aportaCliente && (r.quienAporta === 'idc' || r.quienAporta === 'tercero')
+        ? [{ id: r.tipo, nombre: r.nombre, responsable: r.quienAporta, enExpediente: p.documentos.some((d) => d.tipo === r.tipo) }] : []) : [],
     recepciones: permisos.ver_documentos_autorizados ? [...recepciones].sort((a, b) => b.fecha.localeCompare(a.fecha)) : [],
     notificaciones: notificaciones.slice(0, MAX_NOTIFICACIONES),
     historial,

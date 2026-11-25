@@ -19,6 +19,8 @@ interface FilaDocumento {
 
 interface FilaExpediente {
   documentos: FilaDocumento[];
+  portal_preparacion?: { documento: TipoDocumento; preparado: boolean }[];
+  portal_entregas_fisicas?: { recepcion_id: string | null; validado_en: string | null; requisitos_documentales: { tipo_documento: TipoDocumento | null } }[];
   aprobaciones_checklist_g2?: { id: string; version_checklist: number; resultado: string; aprobado_at: string }[];
   sistemas_fotovoltaicos: {
     numero_paneles: number | null;
@@ -34,7 +36,8 @@ interface FilaExpediente {
 export async function componerExpediente(sb: ClienteSupabase, proyecto: Proyecto, incluirRevision = true): Promise<Proyecto> {
   const folio = encodeURIComponent(proyecto.folio.toUpperCase());
   const resoluciones = incluirRevision ? ',resoluciones_documentales(id,decision,resuelto_at)' : '';
-  const aprobaciones = incluirRevision ? ',aprobaciones_checklist_g2(id,version_checklist,resultado,aprobado_at)' : '';
+  const aprobaciones = incluirRevision ? ',aprobaciones_checklist_g2(id,version_checklist,resultado,aprobado_at),' +
+    'portal_preparacion(documento,preparado),portal_entregas_fisicas(recepcion_id,validado_en,requisitos_documentales(tipo_documento))' : '';
   const filas = await sb.rest<FilaExpediente[]>('GET',
     '/proyectos?select=documentos(id,nombre_archivo,mime_type,fecha_emision,fecha_vigencia,version,created_at,' +
     'requisitos_documentales(tipo_documento),documento_datos_declarados(campo,declarado,valor_texto' + resoluciones +
@@ -43,11 +46,23 @@ export async function componerExpediente(sb: ClienteSupabase, proyecto: Proyecto
   const complemento = filas[0];
   const revisionDocumental: NonNullable<Proyecto['revisionDocumental']> = {};
   if (incluirRevision) {
-    const recepciones = await sb.rest<{ documento_id: TipoDocumento; estado: 'recibido' | 'en_revision' | 'aceptado' | 'rechazado' }[]>('GET',
-      '/portal_recepciones?select=documento_id,estado&folio=eq.' + folio + '&order=creado_en.desc,id.desc&limit=500');
+    const recepciones = await sb.rest<{ id: string; documento_id: TipoDocumento; estado: 'recibido' | 'en_revision' | 'prevalidado' | 'aceptado' | 'rechazado' }[]>('GET',
+      '/portal_recepciones?select=id,documento_id,estado&folio=eq.' + folio + '&order=creado_en.desc,id.desc&limit=500');
     for (const r of recepciones) {
       if (!Object.hasOwn(revisionDocumental, r.documento_id)) {
-        Object.defineProperty(revisionDocumental, r.documento_id, { value: r.estado, enumerable: true });
+        Object.defineProperty(revisionDocumental, r.documento_id, { value: r.estado, enumerable: true, writable: true });
+      }
+    }
+    for (const e of complemento?.portal_entregas_fisicas ?? []) {
+      const tipo = e.requisitos_documentales.tipo_documento;
+      const ultima = recepciones.find((r) => r.documento_id === tipo);
+      if (tipo && (ultima?.id ?? null) === e.recepcion_id && ultima?.estado !== 'aceptado' && ultima?.estado !== 'rechazado') {
+        revisionDocumental[tipo] = e.validado_en ? 'validado_fisico' : 'entregado';
+      }
+    }
+    for (const e of complemento?.portal_preparacion ?? []) {
+      if (e.preparado && !Object.hasOwn(revisionDocumental, e.documento)) {
+        Object.defineProperty(revisionDocumental, e.documento, { value: 'preparado', enumerable: true });
       }
     }
   }
@@ -55,7 +70,7 @@ export async function componerExpediente(sb: ClienteSupabase, proyecto: Proyecto
   const versiones = [...(complemento?.documentos ?? [])].sort((a, b) => b.version - a.version || b.created_at.localeCompare(a.created_at));
   for (const d of versiones) {
     const tipo = d.requisitos_documentales?.tipo_documento;
-    if (!tipo || documentos.has(tipo) || (revisionDocumental[tipo] && revisionDocumental[tipo] !== 'aceptado')) continue;
+    if (!tipo || documentos.has(tipo) || (revisionDocumental[tipo] && !['aceptado', 'preparado'].includes(revisionDocumental[tipo]!))) continue;
     documentos.set(tipo, {
       id: d.id, nombre: d.nombre_archivo, tipo, fechaEmision: d.fecha_emision, fechaVigencia: d.fecha_vigencia,
       datos: d.documento_datos_declarados.filter((v) => v.declarado).map((v) => ({ campo: v.campo, valor: v.valor_texto })),

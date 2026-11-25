@@ -41,7 +41,8 @@ describe('portal: componentes', () => {
   it('estados: lenguaje para el cliente; solo pendiente, rechazado y vencido requieren su acción', () => {
     expect(ESTADO_DOCUMENTO.pendiente.texto).toBe('Por entregar');
     expect(ESTADO_DOCUMENTO.en_revision.texto).toBe('Recibido · pendiente de revisión');
-    expect(JSON.stringify(ESTADO_DOCUMENTO)).not.toMatch(/bloque|observaci|valid/i);
+    expect(JSON.stringify(ESTADO_DOCUMENTO)).not.toMatch(/bloque|observaci|ReadyCheck/i);
+    expect(ESTADO_DOCUMENTO.prevalidado.texto).toBe('Prevalidado por IDC');
     expect([...REQUIERE_ACCION].sort()).toEqual(['pendiente', 'rechazado', 'vencido']);
   });
 

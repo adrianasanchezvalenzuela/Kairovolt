@@ -3,8 +3,9 @@ import type { RequisitoDocumental, FilaCatalogoSupabase } from '../src/domain/ch
 import { comoRequisitoChecklist, mapearFilaCatalogo } from '../src/domain/checklist/catalogo';
 import { catalogoRequisitosBase } from '../src/data/catalogo-requisitos.mock';
 import type { ClienteSupabase } from './supabase/cliente';
+import { guiasDemo } from '../src/domain/checklist/preparacion';
 
-const CAMPOS = 'id,codigo,tipo_documento,nombre,descripcion,categoria,compuerta,canal,obligatorio,condicion,condiciones_aplicacion,requiere_vigencia,aporta_cliente,quien_aporta,instrucciones_cliente,campos_esperados,ejemplos_autorizados,generacion_automatica,orden,activo,validacion_idc';
+const CAMPOS = 'id,codigo,tipo_documento,nombre,descripcion,categoria,compuerta,canal,obligatorio,condicion,condiciones_aplicacion,requiere_vigencia,aporta_cliente,quien_aporta,instrucciones_cliente,campos_esperados,ejemplos_autorizados,generacion_automatica,orden,activo,validacion_idc,guia_preparacion,revision_digital';
 
 /** Lee catálogo canónico con service_role. Cualquier error se propaga; producción nunca cae al catálogo demo. */
 export async function leerCatalogoSupabase(sb: ClienteSupabase, soloActivos = true): Promise<RequisitoDocumental[]> {
@@ -22,6 +23,7 @@ export function requisitosChecklist(catalogo: readonly RequisitoDocumental[]): R
 /** Solo el modo de demostración usa las fixtures locales. */
 export function catalogoDeDemostracion(): RequisitoDocumental[] {
   return catalogoRequisitosBase.map((r, i) => ({
+    guiaPreparacion: guiasDemo[r.tipo], revisionDigital: r.aportaCliente ? 'opcional' : 'no_disponible',
     id: r.id, codigo: r.codigo ?? `KV_${r.tipo.toUpperCase()}`, tipo: r.tipo, nombre: r.nombre,
     descripcion: r.descripcion ?? r.nombre, categoria: r.categoria ?? 'pendiente', compuerta: r.compuerta,
     canal: r.canal, obligatorio: r.obligatorio, condicion: r.condicion ?? null, requiereVigencia: r.requiereVigencia === true,

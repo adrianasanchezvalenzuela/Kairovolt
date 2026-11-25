@@ -10,6 +10,7 @@ export const ESTADO_DOCUMENTO: Readonly<Record<EstadoDocumentoCliente, { texto: 
   en_revision: { texto: 'Recibido · pendiente de revisión', tono: 'info' },
   recibido: { texto: 'Recibido', tono: 'ok' },
   aceptado: { texto: 'Aceptado por IDC', tono: 'ok' },
+  prevalidado: { texto: 'Prevalidado por IDC', tono: 'info' },
   no_aplica: { texto: 'No aplica', tono: 'neutro' },
 };
 

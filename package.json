@@ -10,12 +10,14 @@
     "test": "vitest run",
     "preview": "vite preview",
     "server": "node --env-file-if-exists=server/.env --import tsx server/index.ts",
+    "correo:portal": "node --env-file-if-exists=server/.env --import tsx server/procesar-correo-portal.ts",
     "start": "vite build && npm run server"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.11",
     "hono": "^4.13.20",
     "lucide-react": "^1.79.0",
+    "pdf-lib": "^1.17.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.6"

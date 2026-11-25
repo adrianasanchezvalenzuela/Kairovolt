@@ -1,14 +1,23 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, Bell, Check, ClipboardList, FolderOpen, History, MapPin, Waypoints, Zap } from 'lucide-react';
 import { EnergiaPortal, EnlacePortal, IlustracionExpediente } from '@/components/portal/DisenoPortal';
-import { datosPortal } from '@/infrastructure/portal-http';
+import { datosPortal, listarPreparacionPortal } from '@/infrastructure/portal-http';
+import type { ProgresoPreparacion } from '@/domain/checklist/preparacion';
 import { pasosParticipantes } from '@/application/participantes';
 import { useVistaPortal } from '@/hooks/PortalContexto';
+import { esCitaDemo } from '@/data/demos-portal';
 
 export function PortalInicio() {
   const v = useVistaPortal();
   const [captura, setCaptura] = useState<string | null>(null);
   const [confirmarDatos, setConfirmarDatos] = useState(false);
+  const [preparacion, setPreparacion] = useState<ProgresoPreparacion[] | null>(null);
+  useEffect(() => {
+    if (v.documentos === null) return;
+    let vigente = true;
+    void listarPreparacionPortal().then((p) => { if (vigente) setPreparacion(p); }).catch(() => {});
+    return () => { vigente = false; };
+  }, [v.folio, v.documentos === null]);
   useEffect(() => {
     if (!v.permisos.editarParticipantes) return;
     let vigente = true;
@@ -24,12 +33,20 @@ export function PortalInicio() {
   const aceptados = documentos?.filter((d) => d.estado === 'aceptado').length;
   const revision = documentos?.filter((d) => d.estado === 'en_revision' || d.estado === 'recibido').length;
   const correcciones = documentos?.filter((d) => d.estado === 'rechazado').length ?? 0;
-  const pendientes = documentos?.filter((d) => ['pendiente', 'rechazado', 'vencido'].includes(d.estado)).length;
+  const pendientes = documentos?.filter((d) => d.estado === 'rechazado' || d.estado === 'vencido' || (d.estado === 'pendiente' &&
+    !preparacion?.some((p) => p.documento === d.id && p.preparado))).length;
+  const digitalPendiente = documentos?.some((d) => d.estado !== 'no_aplica' && d.estado !== 'prevalidado' && d.estado !== 'aceptado' &&
+    v.guiaDocumental?.some((g) => g.id === d.id && g.revisionDigital === 'obligatoria'));
+  const listoParaOrientar = preparacion !== null && !!documentos?.length && pendientes === 0 && !digitalPendiente && !revision;
   const paso = v.siguientePaso;
   const actual = v.etapas.find((etapa) => etapa.actual);
   const ultima = v.notificaciones[0] ?? v.historial[0];
-  const accion = correcciones ? { titulo: 'Atiende las correcciones de IDC', texto: paso.detalle, ruta: '/portal/documentos', boton: 'Ver correcciones' }
+  const citaDemo = esCitaDemo(v);
+  const accion = citaDemo ? { titulo: 'Tu expediente está listo.', texto: 'Todos los documentos solicitados fueron aceptados. Elige cuándo entregar el expediente físico.', ruta: '/portal/cita', boton: 'Generar cita de prueba' }
+    : correcciones ? { titulo: 'Atiende las correcciones de IDC', texto: paso.detalle, ruta: '/portal/documentos', boton: 'Ver correcciones' }
     : confirmarDatos ? { titulo: 'Completa los datos de tu expediente', texto: 'Revisa y confirma la información del titular y de quien tramita.', ruta: '/portal/mis-datos', boton: 'Ir a Mis datos' }
+    : listoParaOrientar ? { titulo: 'Terminaste de preparar tus documentos.', texto: 'Consulta con IDC qué llevar a la entrega y si necesitas originales, copias o firmas.', ruta: '/portal/documentos', boton: 'Consultar la guía de entrega' }
+    : digitalPendiente && !revision ? { titulo: 'Envía los documentos que requieren revisión.', texto: 'IDC debe revisar esas copias antes de coordinar los siguientes pasos.', ruta: '/portal/documentos', boton: 'Ver requisitos' }
     : paso.responsable === 'cliente'
       ? { titulo: 'Preparemos tus documentos.', texto: paso.detalle, ruta: '/portal/documentos', boton: 'Continuar mi expediente' }
       : { titulo: revision ? 'IDC está revisando tus envíos.' : paso.titulo, texto: paso.detalle,
@@ -52,7 +69,7 @@ export function PortalInicio() {
         <IlustracionExpediente variante={confirmarDatos && !correcciones ? 'identidad' : revision && !correcciones ? 'validacion' : 'documentos'} />
         <span className="kv-cliente-etiqueta">Tu próxima acción</span>
         <h2>{accion.titulo}</h2><p>{accion.texto}</p>
-        {!correcciones && !confirmarDatos && !revision && paso.fechaEstimada &&
+        {!citaDemo && !correcciones && !confirmarDatos && !revision && paso.fechaEstimada &&
           <p>Fecha estimada <time dateTime={paso.fechaEstimada}>{paso.fechaEstimada}</time></p>}
         <EnlacePortal to={accion.ruta}>{accion.boton}</EnlacePortal>
       </section>

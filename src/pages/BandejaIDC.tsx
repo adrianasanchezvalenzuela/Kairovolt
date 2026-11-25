@@ -9,7 +9,7 @@ import { puede } from '@/domain/usuarios/permisos';
 import type { RequisitoDocumental } from '@/domain/checklist/catalogo';
 import { catalogoRepositorio } from '@/infrastructure/catalogo';
 
-type Estado = 'recibido' | 'en_revision' | 'aceptado' | 'rechazado';
+type Estado = 'recibido' | 'en_revision' | 'prevalidado' | 'aceptado' | 'rechazado';
 interface RecepcionIDC {
   id: string;
   folio: string;
@@ -24,7 +24,7 @@ interface RecepcionIDC {
   sustituye_recepcion_id: string | null;
 }
 
-const estados: Record<Estado, string> = { recibido: 'Pendiente de revisión', en_revision: 'En revisión', aceptado: 'Aceptado por IDC', rechazado: 'Requiere corrección' };
+const estados: Record<Estado, string> = { recibido: 'Pendiente de revisión', en_revision: 'En revisión', prevalidado: 'Prevalidado por IDC', aceptado: 'Validado en expediente', rechazado: 'Requiere corrección' };
 const ruta = '/api/admin/revision/recepciones';
 const inicial = { folio: '', estado: '', tipo: '', desde: '' };
 
@@ -52,6 +52,7 @@ export function BandejaIDC() {
   const [ocupado, setOcupado] = useState(false);
   const [intento, setIntento] = useState(0);
   const [catalogo, setCatalogo] = useState<RequisitoDocumental[] | null>(null);
+  const [entrega, setEntrega] = useState({ folio: '', tipo: '', validar: false });
   const requisito = catalogo?.find((r) => r.tipo === seleccion?.documento_id);
 
   useEffect(() => {
@@ -88,7 +89,7 @@ export function BandejaIDC() {
     setError(''); setSeleccion(null); setOffset(0); setFiltros({ ...campos });
   }
 
-  async function revisar(decision: Estado) {
+  async function revisar(decision: Estado | 'entregado') {
     if (!seleccion || ocupado) return;
     setOcupado(true);
     setError('');
@@ -98,9 +99,11 @@ export function BandejaIDC() {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'kairovolt' },
         body: JSON.stringify({ decision, causa, mensaje: explicacion }),
       });
-      if (r.status === 409) throw new Error('Ya existe una revisión o versión posterior. Actualiza la bandeja.');
+      if (r.status === 409) throw new Error(decision === 'aceptado' ? 'Verifica que la entrega física de esta versión esté registrada.' :
+        'La versión cambió o falta completar la revisión obligatoria.');
       if (!r.ok) throw new Error('No se pudo guardar la revisión. Verifica el requisito y vuelve a intentar.');
-      setMensaje(decision === 'aceptado' ? 'Documento aceptado y vinculado al expediente.' :
+      setMensaje(decision === 'entregado' ? 'Recepción física registrada.' : decision === 'prevalidado' ? 'Copia digital prevalidada.' :
+        decision === 'aceptado' ? 'Documento validado y vinculado al expediente.' :
         decision === 'en_revision' ? 'La recepción quedó en revisión.' : 'Corrección solicitada al cliente.');
       setSeleccion(null);
       setIntento(intento + 1);
@@ -109,10 +112,39 @@ export function BandejaIDC() {
     } finally { setOcupado(false); }
   }
 
+  async function guardarEntrega(e: FormEvent) {
+    e.preventDefault();
+    setOcupado(true); setError(''); setMensaje('');
+    try {
+      const r = await fetch('/api/admin/revision/entregas', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'kairovolt' },
+        body: JSON.stringify(entrega),
+      });
+      if (!r.ok) throw new Error(r.status === 409 ? 'Revisa el requisito, la recepción previa y si existe una copia digital.' :
+        'No se pudo registrar la entrega. Revisa el folio y el requisito.');
+      setMensaje(entrega.validar ? 'Validación del documento físico registrada.' : 'Entrega física registrada.');
+    } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo registrar.'); }
+    finally { setOcupado(false); }
+  }
+
   if (!autorizado) return <AlertPanel tono="alerta">Tu sesión requiere permiso de revisión documental.</AlertPanel>;
 
   return <>
     <PageHeader titulo="Bandeja IDC" />
+    <details>
+      <summary>Registrar entrega física sin copia digital</summary>
+      <form className="kv-filtros" onSubmit={(e) => void guardarEntrega(e)}>
+        <label>Folio de entrega <input required value={entrega.folio} onChange={(e) => setEntrega({ ...entrega, folio: e.target.value })} /></label>
+        <label>Requisito entregado <select required value={entrega.tipo} onChange={(e) => setEntrega({ ...entrega, tipo: e.target.value })}>
+          <option value="">Selecciona</option>{catalogo?.filter((r) => r.activo && r.aportaCliente && r.tipo && r.revisionDigital !== 'obligatoria')
+            .map((r) => <option key={r.codigo} value={r.tipo!}>{r.nombre}</option>)}
+        </select></label>
+        <label>Operación <select value={String(entrega.validar)} onChange={(e) => setEntrega({ ...entrega, validar: e.target.value === 'true' })}>
+          <option value="false">Registrar recepción</option><option value="true">Registrar validación</option>
+        </select></label>
+        <Boton type="submit" disabled={ocupado}>Guardar entrega</Boton>
+      </form>
+    </details>
     <form className="kv-filtros" onSubmit={filtrar}>
       <label>Folio <input value={campos.folio} placeholder="KV-AAAA-000" onChange={(e) => setCampos({ ...campos, folio: e.target.value })} /></label>
       <label>Requisito <input value={campos.tipo} placeholder="recibo_cfe" onChange={(e) => setCampos({ ...campos, tipo: e.target.value })} /></label>
@@ -168,7 +200,7 @@ export function BandejaIDC() {
             <fieldset disabled={ocupado}>
               <legend>Decisión de IDC</legend>
               {seleccion.estado === 'recibido' && <Boton type="button" onClick={() => void revisar('en_revision')}>Iniciar revisión</Boton>}
-              <Boton type="button" onClick={() => void revisar('aceptado')}>Aceptar documento</Boton>
+              <Boton type="button" onClick={() => void revisar('prevalidado')}>Prevalidar copia</Boton>
               <label>Causa de corrección<select required value={causa} onChange={(e) => setCausa(e.target.value)}>
                 <option value="">Selecciona una causa</option>
                 {Object.entries(CAUSAS_CORRECCION).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -177,6 +209,10 @@ export function BandejaIDC() {
               <Boton type="submit">Solicitar corrección</Boton>
             </fieldset>
           </form>}
+          {seleccion.estado !== 'aceptado' && seleccion.estado !== 'rechazado' && <div className="kv-filtros">
+            <Boton disabled={ocupado} onClick={() => void revisar('entregado')}>Registrar recepción física</Boton>
+            <Boton disabled={ocupado} variante="primario" onClick={() => void revisar('aceptado')}>Validar definitivamente</Boton>
+          </div>}
         </>}
       </section>
     </div>

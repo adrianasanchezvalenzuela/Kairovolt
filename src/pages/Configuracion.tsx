@@ -13,6 +13,7 @@ import { ROLES_USUARIO } from '@/domain/usuarios/rol';
 import { useFuenteDatos } from '@/hooks/FuenteDatos';
 import { catalogoRepositorio } from '@/infrastructure/catalogo';
 import type { RequisitoDocumental } from '@/domain/checklist/catalogo';
+import type { RevisionDigital } from '@/domain/checklist/preparacion';
 import { AlertPanel } from '@/components/ui/AlertPanel';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -27,17 +28,32 @@ const ACCIONES_ETIQUETA: Record<string, string> = {
 
 /** Configuración vigente, en solo lectura. Las reglas, umbrales y permisos viven en el dominio; aún no se editan desde la interfaz. */
 export function Configuracion() {
-  const { usuario } = useFuenteDatos();
+  const { usuario, fuente } = useFuenteDatos();
   const [tab, setTab] = useState('reglas');
   const [requisitos, setRequisitos] = useState<RequisitoDocumental[] | null>(null);
   const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
+  const [guardandoModo, setGuardandoModo] = useState<string | null>(null);
   const bloqueo = CONFIGURACION_BLOQUEO_POR_DEFECTO;
   useEffect(() => { void catalogoRepositorio.listarAdministrativo().then(setRequisitos).catch((e: unknown) => setErrorCatalogo(e instanceof Error ? e.message : 'No se pudo cargar el catálogo.')); }, []);
+
+  async function configurarModo(id: string, modo: RevisionDigital) {
+    setGuardandoModo(id);
+    setErrorCatalogo(null);
+    try {
+      const r = await fetch('/api/admin/revision/catalogo/' + encodeURIComponent(id), {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'kairovolt' }, body: JSON.stringify({ modo }),
+      });
+      if (!r.ok) throw new Error('No se pudo guardar la modalidad de revisión digital.');
+      catalogoRepositorio.invalidar();
+      setRequisitos((items) => items?.map((item) => item.id === id ? { ...item, revisionDigital: modo } : item) ?? null);
+    } catch (e) { setErrorCatalogo(e instanceof Error ? e.message : 'No se pudo guardar.'); }
+    finally { setGuardandoModo(null); }
+  }
 
   return (
     <>
       <PageHeader titulo="Configuración" meta="Valores vigentes del sistema. Los marcados «supuesto» son propuestas por confirmar con IDC, no requisitos de CFE." acciones={puede(usuario?.rol, 'gestionar_usuarios') && <Link to="/usuarios" className="kv-btn kv-btn--secundario kv-btn--sm">Gestionar usuarios</Link>} />
-      <AlertPanel tono="info" variante="en-linea">Esta pantalla es de <strong>solo lectura</strong>: cambiar una regla, un umbral o un permiso se hace hoy en el código del dominio (hay un mecanismo de «overrides» sin tocar código, aún sin pantalla ni persistencia).</AlertPanel>
+      <AlertPanel tono="info" variante="en-linea">IDC puede ajustar la modalidad de revisión por requisito. Las reglas, los permisos y los umbrales se configuran en el dominio.</AlertPanel>
       <Tabs tabs={TABS} activa={tab} onCambiar={setTab} etiqueta="Secciones de configuración">
         {tab === 'reglas' && (
           <div className="kv-tabla-scroll">
@@ -70,7 +86,15 @@ export function Configuracion() {
                     <tr key={r.codigo}>
                       <td>{r.nombre}<div className="kv-doc__detalle">{r.codigo}{!r.activo && ' · Inactivo'}</div><details><summary>Ver guía y campos</summary><div className="kv-doc__detalle">{r.descripcion && <p>{r.descripcion}</p>}{r.condicion && <p>Condición: {r.condicion}</p>}{r.instruccionesCliente && <p>{r.instruccionesCliente}</p>}{r.camposEsperados.length > 0 && <p>Campos: {r.camposEsperados.join(' · ')}</p>}{r.ejemplosAutorizados.length > 0 && <p>Ejemplos autorizados: {r.ejemplosAutorizados.join(' · ')}</p>}<p>{r.generacionAutomatica ? 'Generación automática habilitada' : 'Sin generación automática'}</p></div></details></td>
                       <td>{r.compuerta ?? 'Pendiente de mapeo'} · {r.categoria}</td>
-                      <td>{r.canal === 'fisico' ? 'Físico / firma' : 'Digital'} · {r.obligatorio ? 'Obligatorio' : `Condicional: ${r.condicion ?? 'por definir'}`}</td>
+                      <td>{r.canal === 'fisico' ? 'Físico / firma' : 'Digital'} · {r.obligatorio ? 'Obligatorio' : `Condicional: ${r.condicion ?? 'por definir'}`}
+                        {r.activo && r.aportaCliente && fuente === 'zoho' && puede(usuario?.rol, 'gestionar_portal') &&
+                          <label className="kv-campo">Revisión digital
+                            <select value={r.revisionDigital ?? 'opcional'} disabled={guardandoModo !== null}
+                              onChange={(e) => void configurarModo(r.id, e.target.value as RevisionDigital)}>
+                              <option value="opcional">Opcional</option><option value="obligatoria">Obligatoria</option><option value="no_disponible">No disponible</option>
+                            </select>
+                          </label>}
+                      </td>
                       <td>{r.requiereVigencia ? 'Requiere vigencia' : 'Sin vigencia declarada'} · {r.quienAporta}</td>
                       <td><StatusBadge tono={r.validacionIdc === 'validado' ? 'ok' : 'alerta'}>{r.validacionIdc === 'validado' ? 'Validado' : 'Pendiente'}</StatusBadge></td>
                     </tr>

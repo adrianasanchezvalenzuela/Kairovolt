@@ -307,3 +307,17 @@
   .kv-cliente-top__acciones { gap: 6px; }
   .kv-cliente-top .kv-cliente-marca small { font-size: 10px; white-space: nowrap; }
 }
+
+.kv-cliente-cita h2 { display: flex; align-items: center; gap: 8px; font-size: 21px; margin-bottom: 12px; }
+.kv-cliente-cita form label { display: grid; gap: 5px; margin-bottom: 12px; }
+.kv-cliente-cita form :is(input,select) { min-height: 44px; padding: 8px 10px; border: 1px solid #b8c9d2; border-radius: 10px; color: var(--pc-navy); background: #fff; }
+.kv-cliente-cita__acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.kv-cliente-cita aside ul { margin-bottom: 12px; }
+
+.kv-cliente-preparacion { display: grid; justify-items: start; gap: 8px; min-inline-size: 0; margin: 0; padding: 13px; border: 1px solid var(--pc-borde); border-radius: 13px; }
+.kv-cliente-preparacion legend { padding-inline: 6px; font-weight: 700; }
+.kv-cliente-preparacion label { display: flex; align-items: baseline; gap: 8px; }
+.kv-cliente-preparacion input { accent-color: var(--pc-teal); }
+.kvp .kv-dialogo--derecha { box-sizing: border-box; max-width: 100%; }
+.kvp .kv-dialogo__cuerpo { overflow-x: hidden; }
+.kv-cliente-detalle > * { min-width: 0; overflow-wrap: anywhere; }

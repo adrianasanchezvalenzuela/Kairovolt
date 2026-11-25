@@ -1,8 +1,11 @@
 import type { CanalEntrega, CondicionAplicacion, QuienAportaDocumento, Requisito, EstadoValidacionCatalogo } from './checklist';
 import type { CompuertaId } from '../compuertas/compuerta';
 import type { TipoDocumento } from '../documentos/documento';
+import { leerGuiaPreparacion, type GuiaPreparacion, type RevisionDigital } from './preparacion';
 
 export interface RequisitoDocumental {
+  guiaPreparacion?: GuiaPreparacion;
+  revisionDigital?: RevisionDigital;
   id: string;
   codigo: string;
   tipo: TipoDocumento | null;
@@ -37,6 +40,7 @@ const COMPUERTAS: readonly CompuertaId[] = ['G0', 'G1', 'G2', 'G3'];
 const CANALES: readonly CanalEntrega[] = ['digital', 'fisico'];
 
 export interface FilaCatalogoSupabase {
+  guia_preparacion?: unknown; revision_digital?: RevisionDigital;
   id: string; codigo: string; tipo_documento: string | null; nombre: string; descripcion: string | null; categoria: string;
   compuerta: string | null; canal: string; obligatorio: boolean; condicion: string | null; condiciones_aplicacion: unknown;
   requiere_vigencia: boolean; aporta_cliente: boolean; quien_aporta: string; instrucciones_cliente: string | null;
@@ -58,6 +62,7 @@ export function mapearFilaCatalogo(f: FilaCatalogoSupabase): RequisitoDocumental
   const compuerta = COMPUERTAS.includes(f.compuerta as CompuertaId) ? f.compuerta as CompuertaId : null;
   const canal = CANALES.includes(f.canal as CanalEntrega) ? f.canal as CanalEntrega : 'digital';
   return {
+    guiaPreparacion: leerGuiaPreparacion(f.guia_preparacion), revisionDigital: f.revision_digital ?? 'opcional',
     id: f.id, codigo: f.codigo, tipo, nombre: f.nombre, descripcion: f.descripcion, categoria: f.categoria,
     compuerta, canal, obligatorio: f.obligatorio, requiereVigencia: f.requiere_vigencia, aportaCliente: f.aporta_cliente,
     reubicablePorZona: false,

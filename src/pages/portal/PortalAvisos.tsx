@@ -10,7 +10,7 @@ const tipo = {
 } as const;
 
 export function PortalAvisos() {
-  const { notificaciones } = useVistaPortal();
+  const { notificaciones, demo } = useVistaPortal();
   const grupos = new Map<string, typeof notificaciones>();
   for (const n of notificaciones) {
     const dia = n.fecha.slice(0, 10);
@@ -19,6 +19,11 @@ export function PortalAvisos() {
 
   return <>
     <PortadaPortal titulo="Centro de avisos.">Consulta novedades del proyecto y acciones que requieren tu atención.</PortadaPortal>
+    {demo && <details className="kv-cliente-superficie">
+      <summary>Correos simulados</summary>
+      <p>Vista previa de avisos de la demostración. No se utiliza una dirección real.</p>
+      <ul>{notificaciones.slice(0, 5).map((n) => <li key={n.id}>{n.titulo} · <LinkSimulado /></li>)}</ul>
+    </details>}
     {!grupos.size ? <div className="kv-cliente-superficie"><Inbox size={28} aria-hidden="true" />
       <EmptyState titulo="No hay avisos por ahora" descripcion="Las novedades de tu trámite aparecerán aquí." />
     </div> : <div className="kv-cliente-notificaciones">
@@ -36,4 +41,8 @@ export function PortalAvisos() {
       </section>)}
     </div>}
   </>;
+}
+
+function LinkSimulado() {
+  return <EnlacePortal to="/portal/inicio" secundario>Consultar expediente</EnlacePortal>;
 }

@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { componerExpediente } from './expediente';
@@ -26,6 +26,8 @@ import { crearAccesosMemoria, crearParticipantesDemo, crearRecepcionesMemoria, a
 import { crearFuenteZoho, fuenteVacia } from './portal/fuente-zoho';
 import { crearRutasPortal } from './portal/rutas';
 import { crearParticipantesSupabase } from './portal/participantes';
+import { crearPreparacionDemo, crearPreparacionSupabase } from './portal/preparacion';
+import { crearCartasSupabase } from './portal/cartas-supabase';
 import { derivarSecretoPortal } from './portal/sesion';
 import { crearAccesosSupabase, crearAlmacenSupabase, crearRecepcionesSupabase } from './portal/supabase';
 import { crearIntegracion } from './integracion/fabrica';
@@ -115,6 +117,9 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
     },
   };
   const portal = crearRutasPortal({
+    ...(portalDemo ? { preparacion: crearPreparacionDemo(), cartaDemo: true } :
+      supabasePortal ? { preparacion: crearPreparacionSupabase(supabasePortal.sb),
+        cartas: crearCartasSupabase(supabasePortal.sb, supabasePortal.cfg, crearAlmacenSupabase(supabasePortal.cfg, fetchFn), fetchFn) } : {}),
     ...(portalDemo ? { participantes: crearParticipantesDemo() } :
       supabasePortal ? { participantes: crearParticipantesSupabase(supabasePortal.sb) } : {}),
     accesos: accesosPortal,
@@ -134,6 +139,8 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
   app.route('/api/portal', portal);
   if (demoLocal) {
     app.route('/api/demo/portal', crearRutasPortal({
+      preparacion: crearPreparacionDemo(),
+      cartaDemo: true,
       accesos: crearAccesosMemoria(ahora, true, true),
       recepciones: crearRecepcionesMemoria(ahora, true),
       participantes: crearParticipantesDemo(true),
@@ -152,6 +159,20 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
   const loginHabilitado = metodos.token || metodos.correo;
   const sesiones = crearSesiones(derivarSecreto(config.sessionSecret ?? config.adminToken ?? config.supabase?.secretKey ?? ''), ahora);
   const limitadores = crearLimitadores(5, 60_000, ahora);
+  const verificacionesCorreo = crearLimitadores(60, 60_000, ahora);
+  app.post('/api/verificar-correo-portal', bodyLimit({ maxSize: 1024 }), async (c) => {
+    if (!sb || portalDemo || c.req.header(CABECERA_CSRF) !== VALOR_CSRF) return c.json({ error: 'no_disponible' }, 403);
+    if (verificacionesCorreo.bloqueado('portal')) return c.json({ error: 'demasiados_intentos' }, 429);
+    verificacionesCorreo.falla('portal');
+    const b = await c.req.json().catch(() => null) as { token?: unknown } | null;
+    if (typeof b?.token !== 'string' || !/^[a-f0-9]{64}$/.test(b.token)) return c.json({ error: 'enlace_invalido' }, 400);
+    try {
+      const ok = await sb.rest<boolean>('POST', '/rpc/verificar_correo_portal', {
+        p_hash: createHash('sha256').update(b.token).digest('hex'),
+      });
+      return ok ? c.json({ ok: true }) : c.json({ error: 'enlace_invalido' }, 400);
+    } catch { return c.json({ error: 'no_disponible' }, 503); }
+  });
   // Recuperación: por correo (evita bombardear una bandeja) y global (evita usar el backend para enviar correos en masa)
   const recuperaciones = crearLimitadores(3, 10 * 60_000, ahora);
   const recuperacionesGlobal = crearLimitadores(30, 10 * 60_000, ahora);
@@ -358,13 +379,26 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
     if (!supabasePortal) return c.json({ error: 'revision_no_disponible' }, 503);
     await next();
   });
+  app.patch('/api/admin/revision/catalogo/:id', exigir('gestionar_portal'), bodyLimit({ maxSize: 1024 }), async (c) => {
+    const id = c.req.param('id');
+    const b = await c.req.json().catch(() => null) as { modo?: unknown } | null;
+    if (!uuid.test(id) || (b?.modo !== 'opcional' && b?.modo !== 'obligatoria' && b?.modo !== 'no_disponible')) {
+      return c.json({ error: 'datos_invalidos' }, 422);
+    }
+    try {
+      const ok = await sb!.rest<boolean>('POST', '/rpc/configurar_revision_digital', {
+        p_id: id, p_modo: b.modo, p_actor: c.get('actor').uid,
+      });
+      return ok ? c.json({ ok: true }) : c.json({ error: 'requisito_no_disponible' }, 404);
+    } catch { return c.json({ error: 'catalogo_no_disponible' }, 503); }
+  });
   app.get('/api/admin/revision/recepciones', async (c) => {
     const folio = c.req.query('folio')?.trim().toUpperCase();
     const estado = c.req.query('estado');
     const tipo = c.req.query('tipo');
     const desde = c.req.query('desde');
     const offset = Number(c.req.query('offset') ?? 0);
-    if ((folio && !FOLIO.test(folio)) || (estado && !['recibido', 'en_revision', 'aceptado', 'rechazado'].includes(estado)) ||
+    if ((folio && !FOLIO.test(folio)) || (estado && !['recibido', 'en_revision', 'prevalidado', 'aceptado', 'rechazado'].includes(estado)) ||
         (tipo && !/^[a-z_]{1,50}$/.test(tipo)) || (desde && !/^\d{4}-\d{2}-\d{2}$/.test(desde)) ||
         !Number.isSafeInteger(offset) || offset < 0) return c.json({ error: 'filtros_invalidos' }, 400);
     const consulta = new URLSearchParams({
@@ -390,11 +424,14 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
     const decision = b?.decision;
     const causa = b?.causa;
     const mensaje = typeof b?.mensaje === 'string' ? b.mensaje.trim() : '';
-    if (!uuid.test(id) || (decision !== 'aceptado' && decision !== 'rechazado' && decision !== 'en_revision') ||
+    if (!uuid.test(id) || (decision !== 'aceptado' && decision !== 'rechazado' && decision !== 'en_revision' &&
+        decision !== 'prevalidado' && decision !== 'entregado') ||
         (decision === 'rechazado' && (typeof causa !== 'string' || !Object.hasOwn(CAUSAS_CORRECCION, causa) ||
           !mensaje || mensaje.length > 500))) return c.json({ error: 'decision_invalida' }, 422);
     try {
-      const resultado = await sb!.rest('POST', '/rpc/revisar_recepcion_portal', {
+      const resultado = decision === 'prevalidado' || decision === 'entregado' || decision === 'aceptado'
+        ? await sb!.rest('POST', '/rpc/revisar_entrega_portal', { p_id: id, p_actor: c.get('actor').uid, p_accion: decision })
+        : await sb!.rest('POST', '/rpc/revisar_recepcion_portal', {
         p_id: id, p_actor: c.get('actor').uid, p_decision: decision,
         p_causa: decision === 'rechazado' ? causa : null, p_mensaje: decision === 'rechazado' ? mensaje : null,
       });
@@ -403,6 +440,24 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
       if (error instanceof SupabaseError && error.codigo === '40001') return c.json({ error: 'revision_en_conflicto' }, 409);
       if (error instanceof SupabaseError && error.codigo === '22023') return c.json({ error: 'requisito_sin_mapeo' }, 422);
       return c.json({ error: 'revision_no_disponible' }, 503);
+    }
+  });
+
+  app.post('/api/admin/revision/entregas', bodyLimit({ maxSize: 2048 }), async (c) => {
+    const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+    const folio = typeof b?.folio === 'string' ? b.folio.trim().toUpperCase() : '';
+    const tipo = typeof b?.tipo === 'string' ? b.tipo : '';
+    if (!FOLIO.test(folio) || !/^[a-z_]{1,50}$/.test(tipo) || typeof b?.validar !== 'boolean') {
+      return c.json({ error: 'datos_invalidos' }, 422);
+    }
+    try {
+      const ok = await sb!.rest<boolean>('POST', '/rpc/registrar_entrega_sin_copia', {
+        p_folio: folio, p_tipo: tipo, p_actor: c.get('actor').uid, p_validar: b.validar,
+      });
+      return ok ? c.json({ ok: true }) : c.json({ error: 'proyecto_no_encontrado' }, 404);
+    } catch (e) {
+      if (e instanceof SupabaseError && e.codigo === '40001') return c.json({ error: 'entrega_en_conflicto', detalle: e.message }, 409);
+      return c.json({ error: 'entrega_no_disponible' }, 503);
     }
   });
 
@@ -541,6 +596,24 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
 
   // ---- Accesos del portal del cliente (los genera y revoca el personal; el código en claro se muestra UNA vez). ----
   app.use('/api/admin/portal/*', exigir('gestionar_portal'));
+  app.post('/api/admin/portal/correo', bodyLimit({ maxSize: 2048 }), async (c) => {
+    if (!supabasePortal) return c.json({ error: 'no_disponible' }, 503);
+    const b = await c.req.json().catch(() => null) as { folio?: unknown; correo?: unknown } | null;
+    const folio = typeof b?.folio === 'string' ? b.folio.trim().toUpperCase() : '';
+    const correo = typeof b?.correo === 'string' ? normalizarCorreo(b.correo) : null;
+    if (!FOLIO.test(folio) || !correo || correo.length > 254) return c.json({ error: 'datos_invalidos' }, 422);
+    const token = randomBytes(32).toString('hex');
+    try {
+      const ok = await supabasePortal.sb.rest<boolean>('POST', '/rpc/autorizar_correo_portal', {
+        p_folio: folio, p_correo: correo, p_hash: createHash('sha256').update(token).digest('hex'),
+        p_token: token, p_actor: c.get('actor').uid,
+      });
+      return ok ? c.json({ estado: 'en_cola' }, 202) : c.json({ error: 'proyecto_no_encontrado' }, 404);
+    } catch (e) {
+      if (e instanceof SupabaseError && e.codigo === '40001') return c.json({ error: 'demasiados_intentos' }, 429);
+      return c.json({ error: 'no_disponible' }, 503);
+    }
+  });
   const FOLIO_PORTAL = /^KV-(\d{4}|MOCK)-\d{3,}$/;
   const auditarPortal = async (actor: Actor, folio: string | null, accion: string, detalles: Record<string, unknown>) =>
     sb ? registrarEvento(sb, actor, { entidad: 'portal_acceso', folio, accion, detalles }) : undefined;

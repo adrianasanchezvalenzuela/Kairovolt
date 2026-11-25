@@ -6,6 +6,7 @@ import type { ParticipantesPortal } from './participantes';
 import { PERMISOS_PORTAL_POR_DEFECTO } from '../../src/application/portal-cliente';
 import { kv2026004Demo } from '../../src/data/kv-2026-004.demo';
 import { demosPortal } from '../../src/data/demos-portal';
+import { catalogoRequisitosBase } from '../../src/data/catalogo-requisitos.mock';
 import { datosIniciales } from '../../src/application/participantes';
 import { generarCodigo, huellaCodigo } from './codigo';
 import type { AccesoPortal, AccesosPortal, AlmacenPortal, FuenteProyectoPortal, NuevaRecepcion, RecepcionesPortal } from './tipos';
@@ -19,6 +20,7 @@ import type { AccesoPortal, AccesosPortal, AlmacenPortal, FuenteProyectoPortal, 
 export const CODIGO_DEMO: string = demosPortal[0].codigo;
 export const FOLIO_DEMO = kv2026004Demo.folio;
 const enviado = demosPortal[1];
+const listo = demosPortal[2];
 
 interface Fila extends AccesoPortal { huella: string; revocado: boolean }
 
@@ -32,7 +34,9 @@ export function crearAccesosMemoria(ahora: () => number = Date.now, sembrarDemo 
     return fila;
   };
   if (sembrarDemo) alta(FOLIO_DEMO, CODIGO_DEMO, { ...PERMISOS_PORTAL_POR_DEFECTO, editar_participantes: true }, 3650);
-  if (sembrarDemo && incluirEnviado) alta(enviado.folio, enviado.codigo, { ...PERMISOS_PORTAL_POR_DEFECTO, editar_participantes: true }, 3650);
+  if (sembrarDemo && incluirEnviado) {
+    for (const caso of [enviado, listo]) alta(caso.folio, caso.codigo, { ...PERMISOS_PORTAL_POR_DEFECTO, editar_participantes: true }, 3650);
+  }
 
   return {
     async crear(folio, o) {
@@ -66,6 +70,10 @@ export function crearParticipantesDemo(incluirEnviado = false): ParticipantesPor
   if (incluirEnviado) versiones.set(enviado.folio, {
     version: 1, confirmado: true, datos: { ...datosIniciales, tipoTitular: 'fisica', titular: 'Titular ficticio del caso enviado', tramita: 'titular' },
   });
+  if (incluirEnviado) versiones.set(listo.folio, {
+    version: 1, confirmado: true, datos: { ...datosIniciales, tipoTitular: 'fisica', titular: 'Titular ficticio del expediente listo',
+      tramita: 'apoderado', apoderado: 'Apoderada ficticia', testigos: ['Testigo ficticio A', 'Testigo ficticio B'] },
+  });
   return {
     async consultar(acceso) { return versiones.get(acceso.folio) ?? null; },
     async guardar(acceso, entrada) {
@@ -86,6 +94,12 @@ export function crearRecepcionesMemoria(ahora: () => number = Date.now, incluirE
     { folio: enviado.folio, recibo: 'REC-DE0003', documentoId: 'constancia_situacion_fiscal', documento: 'Constancia fiscal', archivo: 'constancia-ficticia.pdf', fecha: new Date(ahora() - 7_200_000).toISOString(), estado: 'recibido', motivo: null },
     { folio: enviado.folio, recibo: 'REC-DE0004', documentoId: 'carta_poder', documento: 'Carta poder', archivo: 'carta-ficticia.pdf', fecha: new Date(ahora() - 3_600_000).toISOString(), estado: 'recibido', motivo: null },
   );
+  if (incluirEnviado) lista.push(...catalogoRequisitosBase.filter((r) => r.aportaCliente && r.obligatorio && !r.condicion)
+    .map((r, i): Recepcion & { folio: string } => ({
+      folio: listo.folio, recibo: 'REC-' + (0xea0001 + i).toString(16).toUpperCase(),
+      documentoId: r.tipo, documento: r.nombre, archivo: r.tipo + '-demo.pdf',
+      fecha: new Date(ahora() - 86_400_000).toISOString(), estado: 'aceptado', motivo: null,
+    })));
   return {
     async listar(folio) {
       return lista.filter((r) => r.folio === folio).map(({ folio: _f, ...r }) => r);
@@ -105,6 +119,11 @@ export const almacenDescarte: AlmacenPortal = { async guardar() { /* demo: no se
 export const fuenteDemo: FuenteProyectoPortal = {
   modo: 'demo',
   async obtener(folio) {
+    if (folio === listo.folio) return {
+      ...kv2026004Demo, id: listo.folio, folio: listo.folio,
+      nombre: 'Interconexión FV · listo para entrega física',
+      documentos: kv2026004Demo.documentos.filter((d) => d.tipo !== 'recibo_cfe'),
+    };
     return folio === FOLIO_DEMO ? kv2026004Demo : null;
   },
 };

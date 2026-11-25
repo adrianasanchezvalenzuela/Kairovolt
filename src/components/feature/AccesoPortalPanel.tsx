@@ -20,6 +20,9 @@ export function AccesoPortalPanel({ folio }: { folio: string }) {
   const [dias, setDias] = useState(90);
   const [subir, setSubir] = useState(true);
   const [captura, setCaptura] = useState(false);
+  const [correoAvisos, setCorreoAvisos] = useState('');
+  const [correoOcupado, setCorreoOcupado] = useState(false);
+  const [correoMensaje, setCorreoMensaje] = useState('');
   const [creando, setCreando] = useState(false);
   const [creado, setCreado] = useState<AccesoCreado | null>(null);
   const [copiado, setCopiado] = useState<'codigo' | 'enlace' | null>(null);
@@ -59,6 +62,26 @@ export function AccesoPortalPanel({ folio }: { folio: string }) {
       {lista?.demo && <p className="kv-demo">Modo demostración: los accesos viven en memoria y se pierden al reiniciar el servidor.</p>}
       {lista && !lista.demo && lista.persistencia === 'memoria' && <AlertPanel tono="alerta" variante="en-linea">Sin Supabase, los accesos solo viven en memoria: se pierden al reiniciar el servidor.</AlertPanel>}
       {error && <AlertPanel tono="error" onCerrar={() => setError(null)}>{error}</AlertPanel>}
+      {lista && !lista.demo && lista.persistencia === 'supabase' && <details>
+        <summary>Correo autorizado para avisos</summary>
+        <form className="kv-filtros" onSubmit={(e) => {
+          e.preventDefault();
+          setCorreoOcupado(true);
+          setCorreoMensaje('');
+          void fetch('/api/admin/portal/correo', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'kairovolt' },
+            body: JSON.stringify({ folio, correo: correoAvisos }),
+          }).then((r) => {
+            if (!r.ok) throw new Error('No se pudo encolar la verificación. Revisa la dirección o intenta más tarde.');
+            setCorreoMensaje('Verificación en cola. El contacto debe confirmarla antes de recibir avisos.');
+            setCorreoAvisos('');
+          }).catch((err: Error) => setCorreoMensaje(err.message)).finally(() => setCorreoOcupado(false));
+        }}>
+          <label>Correo autorizado <input type="email" maxLength={254} required value={correoAvisos} onChange={(e) => setCorreoAvisos(e.target.value)} /></label>
+          <Boton type="submit" cargando={correoOcupado}>Solicitar verificación</Boton>
+        </form>
+        {correoMensaje && <p role="status">{correoMensaje}</p>}
+      </details>}
 
       <div className="kv-filtros">
         <label><input type="checkbox" checked={captura} onChange={(e) => setCaptura(e.target.checked)} /> Permitir captura de participantes</label>

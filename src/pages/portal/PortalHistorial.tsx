@@ -3,7 +3,7 @@ import { PortadaPortal } from '@/components/portal/DisenoPortal';
 import { EmptyState } from '@/components/ui/Estados';
 import { useVistaPortal } from '@/hooks/PortalContexto';
 
-const estados = { recibido: 'Recibido', en_revision: 'En revisión', aceptado: 'Aceptado por IDC', rechazado: 'Requiere corrección' };
+const estados = { recibido: 'Recibido', en_revision: 'En revisión', prevalidado: 'Prevalidado por IDC', aceptado: 'Aceptado por IDC', rechazado: 'Requiere corrección' };
 
 export function PortalHistorial() {
   const { historial, recepciones } = useVistaPortal();

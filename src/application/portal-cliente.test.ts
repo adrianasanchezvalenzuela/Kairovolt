@@ -14,7 +14,7 @@ describe('proyección pública del portal', () => {
   const v = vistaDe();
 
   it('es una lista blanca: solo estas claves, y ninguna cosa interna', () => {
-    expect(Object.keys(v).sort()).toEqual(['avance', 'demo', 'documentos', 'etapaActual', 'etapas', 'folio', 'guiaDocumental', 'historial', 'nombre', 'notificaciones', 'permisos', 'recepciones', 'siguientePaso', 'ubicacion']);
+    expect(Object.keys(v).sort()).toEqual(['avance', 'demo', 'documentos', 'documentosTecnicos', 'etapaActual', 'etapas', 'folio', 'guiaDocumental', 'historial', 'nombre', 'notificaciones', 'permisos', 'recepciones', 'siguientePaso', 'ubicacion']);
     const json = JSON.stringify(v);
     expect(json).not.toMatch(/CS3\.2|CS6\.2|6921|697\.52|nivel_tension|discrepan|bloqueante|hallazgo|observacion|paer|ppc|costo/i);
     expect(json).not.toMatch(/Ingeniería IDC|Proyectista|Supervisor de campo|Coordinación administrativa|Gestión IDC/);

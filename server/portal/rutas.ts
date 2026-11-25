@@ -4,6 +4,9 @@ import { bodyLimit } from 'hono/body-limit';
 import { pasosParticipantes, validarParticipantes } from '../../src/application/participantes';
 import { SupabaseError } from '../supabase/cliente';
 import type { ParticipantesPortal } from './participantes';
+import type { PreparacionPortal } from './preparacion';
+import { datosCartaDisponibles, generarCartaDemo, MARCA_CARTA_DEMO } from './carta-demo';
+import type { CartasSupabase } from './cartas-supabase';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { construirVistaPortal, normalizarFolio, type PermisosPortal } from '../../src/application/portal-cliente';
 import type { Requisito } from '../../src/domain/checklist/checklist';
@@ -18,6 +21,9 @@ export const VALOR_CSRF_PORTAL = 'kairovolt';
 const FOLIO = /^KV-(\d{4}|MOCK)-\d{3,}$/;
 
 export interface OpcionesPortal {
+  preparacion?: PreparacionPortal;
+  cartaDemo?: boolean;
+  cartas?: CartasSupabase;
   cookie?: { nombre: string; ruta: string };
   participantes?: ParticipantesPortal;
   accesos: AccesosPortal;
@@ -55,6 +61,7 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
   const intentosIp = crearLimitadores(30, 10 * 60_000, ahora);
   const subidas = crearLimitadores(20, 10 * 60_000, ahora);
   const ediciones = crearLimitadores(40, 10 * 60_000, ahora);
+  const cartasGeneradas = new Map<string, Awaited<ReturnType<typeof generarCartaDemo>>>();
   const hoy = () => new Date(ahora()).toISOString().slice(0, 10);
 
   app.use('*', async (c, next) => {
@@ -122,7 +129,10 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
     const v = await vista(acceso).catch(() => 'error' as const);
     if (v === 'error') return c.json({ error: 'no_disponible', detalle: 'No se pudo consultar tu proyecto. Intenta de nuevo en un momento.' }, 502);
     if (!v) return c.json({ error: 'proyecto_no_disponible', detalle: 'Tu proyecto todavía no está disponible en el portal.' }, 404);
-    return c.json({ ...v, persistencia: o.persistencia,
+    const entregas = acceso.permisos.ver_documentos_autorizados ? await o.preparacion?.entregas?.(acceso).catch(() => null) : [];
+    if (entregas === null) return c.json({ error: 'no_disponible', detalle: 'No pudimos consultar las entregas de tu expediente.' }, 502);
+    const notificaciones = [...v.notificaciones, ...(entregas ?? [])].sort((a, b) => b.fecha.localeCompare(a.fecha));
+    return c.json({ ...v, notificaciones, persistencia: o.persistencia,
       permisos: { ...v.permisos, editarParticipantes: !!o.participantes && acceso.permisos.editar_participantes === true } });
   });
 
@@ -134,6 +144,89 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
     } catch {
       return c.json({ error: 'no_disponible', detalle: 'No se pudieron consultar tus datos.' }, 503);
     }
+  });
+
+  app.get('/preparacion', async (c) => {
+    const acceso = c.get('acceso');
+    if (!o.preparacion || !acceso.permisos.ver_documentos_autorizados) return c.json({ error: 'sin_permiso' }, 403);
+    try { return c.json({ progreso: await o.preparacion.listar(acceso) }); }
+    catch { return c.json({ error: 'no_disponible', detalle: 'No se pudo consultar la preparación.' }, 503); }
+  });
+
+  app.post('/preparacion/:id', bodyLimit({ maxSize: 2048 }), async (c) => {
+    const acceso = c.get('acceso');
+    if (!o.preparacion || !acceso.permisos.ver_documentos_autorizados ||
+        c.req.header(CABECERA_CSRF_PORTAL) !== VALOR_CSRF_PORTAL) return c.json({ error: 'sin_permiso' }, 403);
+    const limite = 'prep:' + acceso.id;
+    if (ediciones.bloqueado(limite)) return c.json({ error: 'demasiados_intentos' }, 429);
+    ediciones.falla(limite);
+    const b = await c.req.json().catch(() => null) as { marcadas?: unknown; preparado?: unknown } | null;
+    if (!Array.isArray(b?.marcadas) || b.marcadas.length > 30 || typeof b.preparado !== 'boolean') return c.json({ error: 'datos_invalidos' }, 422);
+    try {
+      const v = await vista(acceso);
+      const documento = v?.documentos?.find((d) => d.id === c.req.param('id') && d.estado !== 'no_aplica');
+      const guia = v?.guiaDocumental?.find((g) => g.id === documento?.id);
+      if (!documento || !guia || (guia.condicion && guia.aplicabilidad !== 'aplica')) return c.json({ error: 'documento_no_solicitado' }, 404);
+      const cantidad = guia.guiaPreparacion?.comprobaciones?.length ?? 0;
+      const marcadas = [...new Set(b.marcadas)];
+      if (marcadas.some((n) => !Number.isInteger(n) || n < 0 || n >= cantidad) || (b.preparado && marcadas.length !== cantidad)) {
+        return c.json({ error: 'datos_invalidos', detalle: 'Revisa la lista antes de marcar el documento como preparado.' }, 422);
+      }
+      return c.json(await o.preparacion.guardar(acceso, { documento: documento.id, preparado: b.preparado, marcadas }));
+    } catch { return c.json({ error: 'no_disponible', detalle: 'No se pudo guardar la lista.' }, 503); }
+  });
+
+  app.post('/carta-poder-demo', async (c) => {
+    const acceso = c.get('acceso');
+    if ((!o.cartaDemo && !o.cartas) || !o.participantes || !acceso.permisos.editar_participantes || !acceso.permisos.ver_documentos_autorizados ||
+        c.req.header(CABECERA_CSRF_PORTAL) !== VALOR_CSRF_PORTAL) return c.json({ error: 'sin_permiso' }, 403);
+    const limite = 'carta:' + acceso.id;
+    if (ediciones.bloqueado(limite) || cartasGeneradas.size >= 250) return c.json({ error: 'demasiados_intentos' }, 429);
+    ediciones.falla(limite);
+    try {
+      const version = await o.participantes.consultar(acceso);
+      const proyecto = await o.fuente.obtener(acceso.folio);
+      if (!proyecto || !datosCartaDisponibles(version)) return c.json({
+        error: 'datos_invalidos', detalle: 'Confirma el titular y el representante o apoderado en Mis datos.',
+      }, 422);
+      if (!o.cartaDemo && !(await o.catalogo()).some((r) => r.tipo === 'carta_poder' && r.activo !== false && r.generacionAutomatica)) {
+        return c.json({ error: 'sin_permiso', detalle: 'IDC aún no habilitó la generación demostrativa.' }, 403);
+      }
+      const registro = await generarCartaDemo({ folio: proyecto.folio, nombre: proyecto.nombre, municipio: proyecto.municipio }, version, ahora());
+      if (o.cartas) await o.cartas.guardar(acceso, registro);
+      else cartasGeneradas.set(registro.id, registro);
+      return c.body(Uint8Array.from(registro.bytes).buffer, 200, { 'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename="carta-poder-demostracion.pdf"', 'X-Documento-Id': registro.id });
+    } catch { return c.json({ error: 'no_disponible', detalle: 'No se pudo generar la Carta Poder.' }, 503); }
+  });
+  app.get('/carta-poder-demo', async (c) => {
+    const acceso = c.get('acceso');
+    if ((!o.cartaDemo && !o.cartas) || !acceso.permisos.editar_participantes || !acceso.permisos.ver_documentos_autorizados) {
+      return c.json({ error: 'sin_permiso' }, 403);
+    }
+    try {
+      const historial = o.cartas ? await o.cartas.listar(acceso) : [...cartasGeneradas.values()]
+        .filter((r) => r.snapshot.proyecto.folio === acceso.folio).reverse().slice(0, 20)
+        .map((r) => ({ id: r.id, plantilla: r.plantilla, generado_en: r.fecha }));
+      return c.json({ historial });
+    } catch { return c.json({ error: 'no_disponible' }, 503); }
+  });
+  app.get('/carta-poder-demo/:id', async (c) => {
+    const acceso = c.get('acceso');
+    const id = c.req.param('id');
+    if (!acceso.permisos.editar_participantes || !acceso.permisos.ver_documentos_autorizados ||
+        !/^[\da-f-]{36}$/i.test(id)) return c.json({ error: 'documento_no_disponible' }, 404);
+    if (o.cartas) {
+      try {
+        const url = await o.cartas.enlazar(acceso, id);
+        return url ? c.redirect(url) : c.json({ error: 'documento_no_disponible' }, 404);
+      } catch { return c.json({ error: 'no_disponible' }, 503); }
+    }
+    const registro = cartasGeneradas.get(id);
+    if (!o.cartaDemo ||
+        registro?.snapshot.proyecto.folio !== acceso.folio) return c.json({ error: 'documento_no_disponible' }, 404);
+    return c.body(Uint8Array.from(registro.bytes).buffer, 200, { 'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="carta-poder-demostracion.pdf"' });
   });
 
   app.post('/participantes', bodyLimit({ maxSize: 12_000 }), async (c) => {
@@ -181,6 +274,9 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
     const bytes = new Uint8Array(await archivo.arrayBuffer());
     const r = validarArchivo(archivo.name, archivo.type, bytes);
     if (!r.ok) return c.json({ error: r.error, detalle: r.detalle }, r.error === 'demasiado_grande' ? 413 : 422);
+    if (Buffer.from(r.bytes).includes(MARCA_CARTA_DEMO)) return c.json({
+      error: 'documento_no_admite_envio', detalle: 'La Carta Poder de demostración no se admite como documento de revisión.',
+    }, 422);
 
     subidas.falla(`s:${acceso.id}`);
     const ruta = `${acceso.folio}/portal/${randomUUID()}/${r.nombre}`;

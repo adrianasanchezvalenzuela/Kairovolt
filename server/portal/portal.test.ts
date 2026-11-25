@@ -190,7 +190,7 @@ describe('portal: acceso y permisos en el backend', () => {
     expect(texto).not.toMatch(/observacion|paer|ppc|hallazgo|bloqueante|configuracionTecnica|costo|zoho|token|secret/i);
     expect(texto).not.toMatch(/Completar los campos vacíos del croquis|Solicitar al cliente un recibo|Validación cruzada|Ingeniería: unifilar/);
     const v = JSON.parse(texto) as Record<string, unknown>;
-    expect(Object.keys(v).sort()).toEqual(['avance', 'demo', 'documentos', 'etapaActual', 'etapas', 'folio', 'guiaDocumental', 'historial', 'nombre', 'notificaciones', 'permisos', 'persistencia', 'recepciones', 'siguientePaso', 'ubicacion']);
+    expect(Object.keys(v).sort()).toEqual(['avance', 'demo', 'documentos', 'documentosTecnicos', 'etapaActual', 'etapas', 'folio', 'guiaDocumental', 'historial', 'nombre', 'notificaciones', 'permisos', 'persistencia', 'recepciones', 'siguientePaso', 'ubicacion']);
     expect(v.demo).toBe(true);
   });
 
