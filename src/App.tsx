@@ -4,6 +4,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { PortalLayout } from '@/components/layout/PortalLayout';
 import { FuenteDatosProvider } from '@/hooks/FuenteDatos';
 import { Acceso } from '@/pages/Acceso';
+import { BandejaIDC } from '@/pages/BandejaIDC';
 import { Cuenta } from '@/pages/Cuenta';
 import { Restablecer } from '@/pages/Restablecer';
 import { Usuarios } from '@/pages/Usuarios';
@@ -23,6 +24,7 @@ import { PortalAvisos } from '@/pages/portal/PortalAvisos';
 import { PortalDocumentos } from '@/pages/portal/PortalDocumentos';
 import { PortalHistorial } from '@/pages/portal/PortalHistorial';
 import { PortalInicio } from '@/pages/portal/PortalInicio';
+import { PortalMisDatos } from '@/pages/portal/PortalMisDatos';
 
 /** Galería de componentes: solo en desarrollo (no entra al build de producción). */
 const Componentes = import.meta.env.DEV ? lazy(() => import('@/pages/Componentes').then((m) => ({ default: m.Componentes }))) : null;
@@ -37,6 +39,7 @@ export function App() {
           <Route path="proyectos" element={<Proyectos />} />
           <Route path="documentos" element={<Documentos />} />
           <Route path="validaciones" element={<Validaciones />} />
+          <Route path="bandeja" element={<BandejaIDC />} />
           <Route path="cronograma" element={<Cronograma />} />
           <Route path="seguimiento-cfe" element={<SeguimientoCfe />} />
           <Route path="indicadores" element={<Indicadores />} />
@@ -53,6 +56,7 @@ export function App() {
           <Route index element={<PortalAcceso />} />
           <Route element={<PortalLayout />}>
             <Route path="inicio" element={<PortalInicio />} />
+            <Route path="mis-datos" element={<PortalMisDatos />} />
             <Route path="documentos" element={<PortalDocumentos />} />
             <Route path="avisos" element={<PortalAvisos />} />
             <Route path="historial" element={<PortalHistorial />} />

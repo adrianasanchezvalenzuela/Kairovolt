@@ -66,25 +66,26 @@ export function crearAccesosSupabase(sb: ClienteSupabase, ahora: () => number = 
 }
 
 interface FilaRecepcion {
+  id?: string; sustituye_recepcion_id?: string | null;
   recibo: string; documento_id: string; documento_nombre: string; archivo_nombre: string; creado_en: string;
-  estado: Recepcion['estado']; motivo_rechazo: string | null;
+  estado: Recepcion['estado']; motivo_rechazo: string | null; causa_correccion?: string | null;
 }
-const aRecepcion = (f: FilaRecepcion): Recepcion => ({ recibo: f.recibo, documentoId: f.documento_id, documento: f.documento_nombre, archivo: f.archivo_nombre, fecha: f.creado_en, estado: f.estado, motivo: f.motivo_rechazo });
+const aRecepcion = (f: FilaRecepcion): Recepcion => ({ recibo: f.recibo, documentoId: f.documento_id, documento: f.documento_nombre, archivo: f.archivo_nombre, fecha: f.creado_en, estado: f.estado, motivo: f.motivo_rechazo, causa: f.causa_correccion ?? null });
 
 /** Recepciones en `portal_recepciones` (migración 007). */
 export function crearRecepcionesSupabase(sb: ClienteSupabase): RecepcionesPortal {
   return {
     async listar(folio) {
-      const filas = await sb.rest<FilaRecepcion[]>('GET', `/portal_recepciones?folio=eq.${q(folio)}&select=recibo,documento_id,documento_nombre,archivo_nombre,creado_en,estado,motivo_rechazo&order=creado_en.desc&limit=200`);
-      return (filas ?? []).map(aRecepcion);
+      const filas = await sb.rest<FilaRecepcion[]>('GET', `/portal_recepciones?folio=eq.${q(folio)}&select=id,sustituye_recepcion_id,recibo,documento_id,documento_nombre,archivo_nombre,creado_en,estado,motivo_rechazo,causa_correccion&order=creado_en.desc,id.desc&limit=200`);
+      const sustituidas = new Set(filas.map((f) => f.sustituye_recepcion_id));
+      return filas.map((f) => ({ ...aRecepcion(f), sustituida: sustituidas.has(f.id) }));
     },
     async registrar(r: NuevaRecepcion) {
-      const recibo = `REC-${randomUUID().slice(0, 6).toUpperCase()}`;
-      const filas = await sb.rest<FilaRecepcion[]>('POST', '/portal_recepciones?select=recibo,documento_id,documento_nombre,archivo_nombre,creado_en,estado,motivo_rechazo', {
+      const recibo = `REC-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
+      const fila = await sb.rest<FilaRecepcion>('POST', '/rpc/registrar_recepcion_portal', { p_datos: {
         recibo, folio: r.folio, acceso_id: r.accesoId, documento_id: r.documentoId, documento_nombre: r.documento, archivo_nombre: r.archivo,
         mime: r.mime, tamano_bytes: r.tamano, sha256: r.sha256, ruta_almacen: r.rutaAlmacen,
-      }, 'return=representation');
-      const fila = filas?.[0];
+      } });
       if (!fila) throw new Error('No se pudo registrar la recepción.');
       return aRecepcion(fila);
     },
@@ -94,6 +95,13 @@ export function crearRecepcionesSupabase(sb: ClienteSupabase): RecepcionesPortal
 /** Bucket PRIVADO `expedientes` de Supabase Storage. No se generan enlaces públicos. */
 export function crearAlmacenSupabase(cfg: SupabaseConfig, fetchFn: typeof fetch = fetch): AlmacenPortal {
   return {
+    async retirar(ruta) {
+      const res = await fetchFn(`${cfg.url}/storage/v1/object/expedientes`, {
+        method: 'DELETE', headers: { apikey: cfg.secretKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefixes: [ruta] }),
+      });
+      if (!res.ok) throw new Error('No se pudo retirar el archivo.');
+    },
     async guardar(ruta, contenido, mime) {
       const segura = ruta.split('/').map(encodeURIComponent).join('/');
       let res: Response;

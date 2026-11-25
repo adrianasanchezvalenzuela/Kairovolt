@@ -207,7 +207,18 @@ export function ProyectoDetalle() {
           </>
         )}
 
-        {tab === 'historial' && <HistorialProyecto eventos={historialProyecto(proyecto, decisiones)} />}
+        {tab === 'historial' && <>
+          <HistorialProyecto eventos={historialProyecto(proyecto, decisiones)} />
+          {proyecto.decisionesExpediente && <section aria-label="Decisiones documentales">
+            <h2>Decisiones documentales de IDC</h2>
+            {proyecto.decisionesExpediente.aprobacionesG2.length === 0 && proyecto.decisionesExpediente.resoluciones.length === 0 &&
+              <p className="kv-suave">Aún no hay resoluciones documentales ni aprobaciones de checklist registradas en Supabase.</p>}
+            <ul>
+              {proyecto.decisionesExpediente.aprobacionesG2.map((a) => <li key={a.id}>Checklist G2, versión {a.version} · {a.resultado} · {a.fecha.slice(0, 10)}</li>)}
+              {proyecto.decisionesExpediente.resoluciones.map((r) => <li key={r.id}>{r.documento} · {r.campo.replaceAll('_', ' ')} · {r.decision.replaceAll('_', ' ')} · {r.fecha.slice(0, 10)}</li>)}
+            </ul>
+          </section>}
+        </>}
       </Tabs>
       <PanelEvidencia documento={documentoEvidencia} onCerrar={() => setEvidencia(null)} />
     </>

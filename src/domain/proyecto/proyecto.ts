@@ -1,6 +1,6 @@
 import type { AprobacionCompuerta } from '../compuertas/aprobacion';
 import type { Compuerta } from '../compuertas/compuerta';
-import type { DocumentoExpediente } from '../documentos/documento';
+import type { DocumentoExpediente, TipoDocumento } from '../documentos/documento';
 import type { Observacion } from '../observaciones/observacion';
 import type { AccionAcordada } from '../acciones/accion';
 import type { Actividad } from '../cronograma/actividad';
@@ -32,6 +32,12 @@ export interface Proyecto {
   documentos: DocumentoExpediente[];
   /** false = la fuente no trae el expediente: no se puede evaluar checklist, hallazgos ni carpeta física. */
   documentosDisponibles: boolean;
+  /** Última decisión documental del portal por tipo. Los archivos pendientes quedan fuera de los datos aceptados. */
+  revisionDocumental?: Partial<Record<TipoDocumento, 'recibido' | 'en_revision' | 'aceptado' | 'rechazado'>>;
+  decisionesExpediente?: {
+    resoluciones: { id: string; campo: string; documento: string; decision: string; fecha: string }[];
+    aprobacionesG2: { id: string; version: number; resultado: string; fecha: string }[];
+  };
   observaciones: Observacion[];
   cronograma: Actividad[];
   /** Acuerdos del Sprint de Energización semanal (base del PAER). */

@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Recepcion } from '../../src/application/portal-cliente';
+import type { VersionParticipantes } from '../../src/application/participantes';
+import { SupabaseError } from '../supabase/cliente';
+import type { ParticipantesPortal } from './participantes';
 import { PERMISOS_PORTAL_POR_DEFECTO } from '../../src/application/portal-cliente';
 import { kv2026004Demo } from '../../src/data/kv-2026-004.demo';
 import { generarCodigo, huellaCodigo } from './codigo';
@@ -25,7 +28,7 @@ export function crearAccesosMemoria(ahora: () => number = Date.now, sembrarDemo 
     filas.set(fila.id, fila);
     return fila;
   };
-  if (sembrarDemo) alta(FOLIO_DEMO, CODIGO_DEMO, PERMISOS_PORTAL_POR_DEFECTO, 3650);
+  if (sembrarDemo) alta(FOLIO_DEMO, CODIGO_DEMO, { ...PERMISOS_PORTAL_POR_DEFECTO, editar_participantes: true }, 3650);
 
   return {
     async crear(folio, o) {
@@ -50,6 +53,20 @@ export function crearAccesosMemoria(ahora: () => number = Date.now, sembrarDemo 
       if (!f) return false;
       f.revocado = true;
       return true;
+    },
+  };
+}
+
+export function crearParticipantesDemo(): ParticipantesPortal {
+  const versiones = new Map<string, VersionParticipantes>();
+  return {
+    async consultar(acceso) { return versiones.get(acceso.folio) ?? null; },
+    async guardar(acceso, entrada) {
+      const version = versiones.get(acceso.folio)?.version ?? 0;
+      if (entrada.version !== version) throw new SupabaseError('Versión anterior', 409, '40001');
+      const guardada = { ...entrada, version: version + 1 };
+      versiones.set(acceso.folio, guardada);
+      return guardada;
     },
   };
 }

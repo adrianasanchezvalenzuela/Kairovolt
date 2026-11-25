@@ -30,6 +30,7 @@ export function Validaciones() {
   return (
     <>
       <PageHeader titulo="Validaciones" meta="Resultados del motor de reglas en todos los proyectos. El sistema reporta; las decisiones las toma una persona en cada proyecto." />
+      <p className="kv-suave">ReadyCheck evalúa la preparación interna del expediente. CFE determina la aceptación del trámite.</p>
       <KPIGrid etiqueta="Resumen">
         <KPI etiqueta="Bloqueantes sin resolver" tono={bloqueantes > 0 ? 'error' : 'ok'} valor={String(bloqueantes)} />
         <KPI etiqueta="No cumplen" tono="alerta" valor={String(filas.length)} />

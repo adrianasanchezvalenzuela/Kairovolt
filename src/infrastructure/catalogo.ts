@@ -5,7 +5,8 @@ let respuestaEnCache: Promise<RequisitoDocumental[]> | null = null;
 
 async function obtenerCatalogo(): Promise<RequisitoDocumental[]> {
   const res = await fetch('/api/admin/catalogo', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
-  const data = await res.json().catch(() => ({})) as { requisitos?: RequisitoDocumental[]; error?: string };
+  const data = await res.json().catch(() => ({})) as { requisitos?: RequisitoDocumental[]; error?: string; detalle?: string };
+  if (data.error === 'catalogo_migracion_pendiente' && data.detalle) throw new Error(data.detalle);
   if (!res.ok || !Array.isArray(data.requisitos)) throw new Error(data.error === 'supabase_no_configurado'
     ? 'El catálogo documental no está disponible porque Supabase no está configurado.'
     : 'No se pudo consultar el catálogo documental.');

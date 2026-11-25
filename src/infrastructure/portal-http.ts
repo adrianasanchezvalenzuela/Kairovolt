@@ -1,4 +1,5 @@
 import { ErrorPortal, type CodigoErrorPortal, type EstadoPortal, type PortalRepositorio, type ResultadoSubida, type VistaPortalConEstado } from '@/application/portal-acceso';
+import type { VersionParticipantes } from '@/application/participantes';
 
 const CSRF = { 'X-Requested-With': 'kairovolt' };
 const CODIGOS: readonly CodigoErrorPortal[] = [
@@ -30,6 +31,12 @@ async function llamar(metodo: 'GET' | 'POST' | 'DELETE', ruta: string, cuerpo?: 
     throw new ErrorPortal('sin_conexion', 'No hay conexión. Revisa tu internet e intenta de nuevo.');
   }
   return { status: res.status, data: (await res.json().catch(() => ({}))) as Record<string, unknown> };
+}
+
+export async function datosPortal(entrada?: VersionParticipantes): Promise<VersionParticipantes | null> {
+  const { status, data } = await llamar(entrada ? 'POST' : 'GET', '/api/portal/participantes', entrada);
+  if (status !== 200) throw errorDeRespuesta(status, data);
+  return data.actual as VersionParticipantes | null;
 }
 
 export const portalHttp: PortalRepositorio = {

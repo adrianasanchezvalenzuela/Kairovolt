@@ -262,3 +262,10 @@ button.kv-paso__caja:hover { background: var(--kv-fondo); }
 .kv-dato dt { color: var(--kv-texto-suave); font-size: 13px; }
 .kv-dato dd { margin: 0; overflow-wrap: anywhere; }
 .kv-demo { background: var(--kv-alerta-fondo); border: 1px dashed var(--kv-alerta-solido); border-radius: var(--kv-radio); padding: 6px 12px; margin: 0 0 12px; font-size: 13px; }
+
+.kv-bandeja { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; }
+.kv-bandeja section { min-width: 0; }
+.kv-bandeja form fieldset { display: grid; gap: 10px; margin: 12px 0; border: 1px solid var(--kv-borde); }
+.kv-bandeja form label { display: grid; gap: 4px; }
+.kv-bandeja form textarea { min-height: 85px; }
+@media (max-width: 900px) { .kv-bandeja { grid-template-columns: 1fr; } }

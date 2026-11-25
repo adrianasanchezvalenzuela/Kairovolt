@@ -29,6 +29,7 @@ export function PortalLayout() {
   const avisos = v.notificaciones.filter((n) => n.tipo === 'accion').length;
   const items = [
     { to: '/portal/inicio', etiqueta: 'Inicio', icono: '◉', cuenta: 0 },
+    ...(v.permisos.editarParticipantes ? [{ to: '/portal/mis-datos', etiqueta: 'Mis datos', icono: '☻', cuenta: 0 }] : []),
     { to: '/portal/documentos', etiqueta: 'Documentos', icono: '▤', cuenta: porEntregar },
     { to: '/portal/avisos', etiqueta: 'Avisos', icono: '✉', cuenta: avisos },
     { to: '/portal/historial', etiqueta: 'Historial', icono: '↺', cuenta: 0 },
@@ -43,7 +44,7 @@ export function PortalLayout() {
         {v.demo && <span className="kv-badge kv-badge--solido kv-tono-alerta">DEMO</span>}
         <Boton className="kvp-cab__salir" variante="sobre-oscuro" tamano="sm" onClick={() => void salir()}>Salir</Boton>
       </header>
-      <nav className="kvp-nav" aria-label="Secciones del portal">
+      <nav className={`kvp-nav${v.permisos.editarParticipantes ? ' kvp-nav--cinco' : ''}`} aria-label="Secciones del portal">
         {items.map((i) => (
           <NavLink key={i.to} to={i.to}>
             <span className="kvp-nav__icono" aria-hidden="true">{i.icono}</span>

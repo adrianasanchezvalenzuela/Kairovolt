@@ -45,7 +45,8 @@ export interface OpcionesAnalisis {
 export function analizarProyecto(p: Proyecto, { hoy, requisitos, config }: OpcionesAnalisis): AnalisisProyecto {
   const disponible = p.documentosDisponibles;
   const resultados = disponible
-    ? ejecutarReglas({ hoy, documentos: p.documentos, configuracion: p.configuracionTecnica ?? null, requisitos }, config)
+    ? ejecutarReglas({ hoy, documentos: p.documentos, configuracion: p.configuracionTecnica ?? null, requisitos,
+      revisionDocumental: p.revisionDocumental }, config)
     : [];
   const checklist = disponible ? evaluarChecklist(requisitos, p.documentos) : [];
   const pendientes = validacionesPendientes(resultados, p.observaciones);

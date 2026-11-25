@@ -50,6 +50,7 @@ export interface RecepcionesPortal {
 /** Almacén PRIVADO de archivos. Nunca devuelve enlaces públicos. */
 export interface AlmacenPortal {
   guardar(ruta: string, contenido: Uint8Array, mime: string): Promise<void>;
+  retirar?(ruta: string): Promise<void>;
 }
 
 export interface FuenteProyectoPortal {

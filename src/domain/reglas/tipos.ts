@@ -2,6 +2,7 @@ import type { CompuertaId } from '../compuertas/compuerta';
 import type { Requisito } from '../checklist/checklist';
 import type { DocumentoExpediente } from '../documentos/documento';
 import type { ConfiguracionTecnica } from '../entidades/configuracion-tecnica';
+import type { Proyecto } from '../proyecto/proyecto';
 
 /** `no_evaluable` = faltan datos para evaluar la regla (nunca se inventan ni se suponen). */
 export type Resultado = 'cumple' | 'no_cumple' | 'no_evaluable';
@@ -86,6 +87,7 @@ export interface ContextoValidacion {
   documentos: readonly DocumentoExpediente[];
   configuracion?: ConfiguracionTecnica | null;
   requisitos?: readonly Requisito[];
+  revisionDocumental?: Proyecto['revisionDocumental'];
 }
 
 /** Devuelve la regla ya combinada con la configuración. Los evaluadores la piden por id. */

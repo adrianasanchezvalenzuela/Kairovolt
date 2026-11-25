@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import type { EstadoZohoUi, MotivoMock } from '@/application/integracion';
 import { useFuenteDatos } from '@/hooks/FuenteDatos';
 import { puede } from '@/domain/usuarios/permisos';
@@ -27,8 +27,16 @@ const motivoUi: Record<MotivoMock, string> = {
 export function AppShell() {
   const { integracion, sesion, usuario, fuente, motivoMock, cerrarSesion } = useFuenteDatos();
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const { pathname } = useLocation();
+  const { pathname, hash, search } = useLocation();
   useEffect(() => setMenuAbierto(false), [pathname]);
+
+  // Si Supabase redirige a la URL principal de la app, conserva el enlace de recuperación.
+  const fragmento = new URLSearchParams(hash.slice(1));
+  const consulta = new URLSearchParams(search);
+  if (pathname !== '/restablecer' && (fragmento.get('type') === 'recovery'
+    || fragmento.get('error_code') === 'otp_expired' || consulta.get('error_code') === 'otp_expired')) {
+    return <Navigate to={{ pathname: '/restablecer', search, hash }} replace />;
+  }
 
   const zoho = zohoUi[integracion.zoho];
   const puedeIniciar = sesion.loginHabilitado; // el login no depende de Zoho: también da acceso a la gestión de usuarios
@@ -37,6 +45,7 @@ export function AppShell() {
     { titulo: 'Operación', items: [{ to: '/', etiqueta: 'Panel', icono: '◧', exacto: true }, { to: '/proyectos', etiqueta: 'Proyectos', icono: '▤' }] },
     { titulo: 'Control', items: [
       { to: '/documentos', etiqueta: 'Documentos', icono: '▭' }, { to: '/validaciones', etiqueta: 'Validaciones', icono: '✓' }, { to: '/cronograma', etiqueta: 'Cronograma', icono: '▦' },
+      ...(puede(usuario?.rol, 'gestionar_validaciones') ? [{ to: '/bandeja', etiqueta: 'Bandeja IDC', icono: '▤' }] : []),
       { to: '/seguimiento-cfe', etiqueta: 'Seguimiento CFE', icono: '⚡' }, { to: '/indicadores', etiqueta: 'Indicadores', icono: '%' },
     ] },
     { titulo: 'Sistema', items: [{ to: '/integraciones', etiqueta: 'Integraciones', icono: '⇄' }, { to: '/configuracion', etiqueta: 'Configuración', icono: '⚙' }] },

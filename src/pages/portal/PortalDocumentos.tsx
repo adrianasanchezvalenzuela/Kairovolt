@@ -26,13 +26,19 @@ export function PortalDocumentos() {
     return <AlertPanel tono="info" titulo="Documentos no disponibles">Tu acceso no incluye la sección de documentos. Si la necesitas, pídesela a IDC.</AlertPanel>;
   }
   const porHacer = v.documentos.filter((d) => REQUIERE_ACCION.includes(d.estado));
-  const resto = v.documentos.filter((d) => !REQUIERE_ACCION.includes(d.estado));
+  const resto = v.documentos.filter((d) => !REQUIERE_ACCION.includes(d.estado) && d.estado !== 'no_aplica');
+  const excluidos = v.documentos.filter((d) => d.estado === 'no_aplica');
 
   const tarjeta = (d: (typeof v.documentos)[number] & object) => (
     <li key={d.id} className={`kvp-doc${REQUIERE_ACCION.includes(d.estado) ? ' kvp-doc--accion' : ''}`}>
       <div className="kvp-doc__cab">
         <p className="kvp-doc__nombre">{d.nombre}</p>
-        <StatusBadge tono={ESTADO_DOCUMENTO[d.estado].tono} variante="suave" tamano="md">{ESTADO_DOCUMENTO[d.estado].texto}</StatusBadge>
+        <StatusBadge tono={ESTADO_DOCUMENTO[d.estado].tono} variante="suave" tamano="md">
+          {d.estado === 'en_revision' && v.recepciones.find((r) => r.documentoId === d.id)?.estado === 'en_revision'
+            ? 'En revisión por IDC' : d.estado === 'rechazado' &&
+              ['incompleto', 'faltan_datos'].includes(v.recepciones.find((r) => r.documentoId === d.id)?.causa ?? '')
+              ? 'Información incompleta' : ESTADO_DOCUMENTO[d.estado].texto}
+        </StatusBadge>
       </div>
       <p className="kvp-doc__texto">Etapa: {ETAPA_CLIENTE[d.etapa].nombre}{d.vigencia ? ` · Vigencia: ${d.vigencia}` : ''}</p>
       {d.detalle && <p className="kvp-doc__texto">{d.detalle}</p>}
@@ -65,6 +71,7 @@ export function PortalDocumentos() {
           <ul className="kvp-docs" aria-label="Documentos ya entregados">{resto.map(tarjeta)}</ul>
         </>
       )}
+      {excluidos.length > 0 && <details><summary>Requisitos que no aplican</summary><ul className="kvp-docs">{excluidos.map(tarjeta)}</ul></details>}
 
       {v.guiaDocumental && v.guiaDocumental.length > 0 && <>
         <h2>Guía documental</h2>
@@ -96,7 +103,7 @@ export function PortalDocumentos() {
                   <div>
                     <p className="kvp-doc__nombre">{r.documento}</p>
                     <p className="kvp-doc__texto">{r.archivo} · {fechaHora(r.fecha)}</p>
-                    <p className="kvp-doc__texto">Acuse <span className="kvp-recibo__acuse">{r.recibo}</span> · {r.estado === 'recibido' ? 'Recibido, en revisión' : r.estado === 'aceptado' ? 'Aceptado' : 'Hay que enviarlo de nuevo'}</p>
+                    <p className="kvp-doc__texto">Acuse <span className="kvp-recibo__acuse">{r.recibo}</span> · {r.sustituida ? 'Sustituido por otro envío' : r.estado === 'recibido' ? 'Recibido, pendiente de revisión' : r.estado === 'en_revision' ? 'En revisión por IDC' : r.estado === 'aceptado' ? 'Aceptado por IDC' : 'Requiere corrección'}</p>
                     {r.motivo && <p className="kvp-doc__texto">{r.motivo}</p>}
                   </div>
                 </div>

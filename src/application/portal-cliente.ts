@@ -1,4 +1,4 @@
-import { evaluarAplicabilidad, evaluarChecklist, type Requisito } from '../domain/checklist/checklist';
+import { evaluarAplicabilidad, evaluarChecklist, type DatosCondicionAplicacion, type Requisito } from '../domain/checklist/checklist';
 import { ORDEN_COMPUERTAS, type CompuertaId } from '../domain/compuertas/compuerta';
 import { evaluarActividad } from '../domain/cronograma/actividad';
 import type { Proyecto } from '../domain/proyecto/proyecto';
@@ -13,7 +13,7 @@ import { evaluarVigencias } from '../domain/vigencias/vigencias';
  * otros clientes ni identificadores de Zoho.
  */
 
-export type EstadoDocumentoCliente = 'pendiente' | 'en_revision' | 'recibido' | 'aceptado' | 'rechazado' | 'vencido' | 'por_vencer';
+export type EstadoDocumentoCliente = 'pendiente' | 'en_revision' | 'recibido' | 'aceptado' | 'rechazado' | 'vencido' | 'por_vencer' | 'no_aplica';
 export type ResponsablePaso = 'cliente' | 'idc' | 'cfe';
 
 export interface DocumentoSolicitado {
@@ -55,9 +55,11 @@ export interface Recepcion {
   archivo: string;
   /** ISO con hora. */
   fecha: string;
-  estado: 'recibido' | 'aceptado' | 'rechazado';
+  estado: 'recibido' | 'en_revision' | 'aceptado' | 'rechazado';
   /** Motivo redactado por IDC para el cliente cuando se rechaza. */
   motivo: string | null;
+  causa?: string | null;
+  sustituida?: boolean;
 }
 
 export interface Notificacion {
@@ -90,7 +92,7 @@ export interface VistaPortal {
   recepciones: Recepcion[];
   notificaciones: Notificacion[];
   historial: EventoPublico[];
-  permisos: { subirDocumentos: boolean };
+  permisos: { subirDocumentos: boolean; editarParticipantes?: boolean };
 }
 
 /** Permisos del acceso del cliente (se guardan en `portal_accesos.permisos`). */
@@ -98,6 +100,7 @@ export interface PermisosPortal {
   ver_progreso: boolean;
   ver_documentos_autorizados: boolean;
   subir_documentos: boolean;
+  editar_participantes?: boolean;
 }
 export const PERMISOS_PORTAL_POR_DEFECTO: PermisosPortal = { ver_progreso: true, ver_documentos_autorizados: true, subir_documentos: true };
 
@@ -114,9 +117,10 @@ export interface EntradaVista {
   hoy: string;
   recepciones: readonly Recepcion[];
   permisos: PermisosPortal;
+  datosAplicabilidad?: DatosCondicionAplicacion;
 }
 
-export function construirVistaPortal({ proyecto: p, catalogo, hoy, recepciones, permisos }: EntradaVista): VistaPortal {
+export function construirVistaPortal({ proyecto: p, catalogo, hoy, recepciones, permisos, datosAplicabilidad = {} }: EntradaVista): VistaPortal {
   const disponible = p.documentosDisponibles;
   const checklist = disponible ? evaluarChecklist(catalogo, p.documentos) : null;
   const avance = calcularAvance({ compuertas: p.compuertas, checklist });
@@ -124,7 +128,8 @@ export function construirVistaPortal({ proyecto: p, catalogo, hoy, recepciones, 
   const actual = ORDEN_COMPUERTAS.find((id) => estadoDe(id) !== 'liberada') ?? null;
 
   // ---- Documentos que debe aportar el cliente ----
-  const requisitosCliente = catalogo.filter((r) => r.aportaCliente && r.obligatorio);
+  const requisitosCliente = catalogo.filter((r) => r.activo !== false && r.aportaCliente &&
+    (r.obligatorio || (!!r.condicionesAplicacion?.length && evaluarAplicabilidad(r, datosAplicabilidad) === 'aplica')));
   const vigencias = disponible ? evaluarVigencias(catalogo.filter((r) => r.aportaCliente), p.documentos, hoy) : [];
   const ultimaRecepcion = (id: string) => [...recepciones].filter((r) => r.documentoId === id).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
 
@@ -135,21 +140,26 @@ export function construirVistaPortal({ proyecto: p, catalogo, hoy, recepciones, 
     const vig = doc ? vigencias.find((h) => h.evidencias[0]?.documentoId === doc.id) : undefined;
     let estado: EstadoDocumentoCliente;
     let detalle: string | null = null;
+    const aplicabilidad = evaluarAplicabilidad(req, datosAplicabilidad);
     if (rec?.estado === 'rechazado') { estado = 'rechazado'; detalle = rec.motivo ?? 'IDC pidió que lo envíes de nuevo.'; }
-    else if (rec?.estado === 'recibido') { estado = 'en_revision'; detalle = 'Lo recibimos y lo estamos revisando.'; }
+    else if (rec?.estado === 'recibido') { estado = 'en_revision'; detalle = 'Recibimos tu archivo. Está en espera de revisión por IDC.'; }
+    else if (rec?.estado === 'en_revision') { estado = 'en_revision'; detalle = 'IDC está revisando tu archivo.'; }
     else if (rec?.estado === 'aceptado') estado = 'aceptado';
     else if (doc) {
       if (vig?.subtipo === 'vencido') { estado = 'vencido'; detalle = 'El documento está vencido: envía uno vigente.'; }
       else if (vig?.subtipo === 'por_vencer') { estado = 'por_vencer'; detalle = 'Está por vencer: ten listo uno actualizado.'; }
       else estado = 'recibido';
-    } else estado = 'pendiente';
-    return { id: req.tipo, nombre: req.nombre, etapa: req.compuerta, estado, detalle, puedeSubir: permisos.subir_documentos && PUEDE_SUBIR.includes(estado), vigencia: doc?.fechaVigencia ?? null };
+    } else estado = aplicabilidad === 'no_aplica' ? 'no_aplica' : 'pendiente';
+    const condicionActiva = !!req.condicion || !!req.condicionesAplicacion?.length;
+    return { id: req.tipo, nombre: req.nombre, etapa: req.compuerta, estado, detalle,
+      puedeSubir: permisos.subir_documentos && (!condicionActiva || aplicabilidad === 'aplica') && PUEDE_SUBIR.includes(estado),
+      vigencia: doc?.fechaVigencia ?? null };
   });
   const guiaDocumental: GuiaDocumentoCliente[] = catalogo.filter((r) => r.activo !== false && r.aportaCliente).map((r) => ({
     id: r.tipo, nombre: r.nombre, descripcion: r.descripcion ?? null, etapa: r.compuerta, condicion: r.condicion ?? null,
     canal: r.canal, requiereVigencia: r.requiereVigencia === true, quienAporta: r.quienAporta ?? 'cliente',
     instrucciones: r.instruccionesCliente ?? null, camposEsperados: r.camposEsperados ?? [], ejemplosAutorizados: r.ejemplosAutorizados ?? [],
-    validacionIdc: r.validacionIdc ?? 'pendiente', aplicabilidad: evaluarAplicabilidad(r, {}),
+    validacionIdc: r.validacionIdc ?? 'pendiente', aplicabilidad: evaluarAplicabilidad(r, datosAplicabilidad),
   }));
   const porHacer = documentos.filter((d) => NECESITA_ACCION.includes(d.estado));
 

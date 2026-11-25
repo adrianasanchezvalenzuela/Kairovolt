@@ -1,5 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
+import { pasosParticipantes, validarParticipantes } from '../../src/application/participantes';
+import { SupabaseError } from '../supabase/cliente';
+import type { ParticipantesPortal } from './participantes';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { construirVistaPortal, normalizarFolio, type PermisosPortal } from '../../src/application/portal-cliente';
 import type { Requisito } from '../../src/domain/checklist/checklist';
@@ -14,6 +18,7 @@ export const VALOR_CSRF_PORTAL = 'kairovolt';
 const FOLIO = /^KV-(\d{4}|MOCK)-\d{3,}$/;
 
 export interface OpcionesPortal {
+  participantes?: ParticipantesPortal;
   accesos: AccesosPortal;
   recepciones: RecepcionesPortal;
   almacen: AlmacenPortal;
@@ -47,6 +52,7 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
   const intentosFolio = crearLimitadores(5, 60_000, ahora);
   const intentosIp = crearLimitadores(30, 10 * 60_000, ahora);
   const subidas = crearLimitadores(20, 10 * 60_000, ahora);
+  const ediciones = crearLimitadores(40, 10 * 60_000, ahora);
   const hoy = () => new Date(ahora()).toISOString().slice(0, 10);
 
   app.use('*', async (c, next) => {
@@ -103,7 +109,9 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
     if (!proyecto) return null;
     const recepciones = await o.recepciones.listar(acceso.folio);
     const catalogo = await o.catalogo();
-    return construirVistaPortal({ proyecto, catalogo, hoy: hoy(), recepciones, permisos: acceso.permisos });
+    const participantes = acceso.permisos.editar_participantes === true ? await o.participantes?.consultar(acceso) : null;
+    const datosAplicabilidad = participantes?.confirmado ? { tipo_titular: participantes.datos.tipoTitular } : {};
+    return construirVistaPortal({ proyecto, catalogo, hoy: hoy(), recepciones, permisos: acceso.permisos, datosAplicabilidad });
   }
 
   app.get('/vista', async (c) => {
@@ -112,11 +120,45 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
     const v = await vista(acceso).catch(() => 'error' as const);
     if (v === 'error') return c.json({ error: 'no_disponible', detalle: 'No se pudo consultar tu proyecto. Intenta de nuevo en un momento.' }, 502);
     if (!v) return c.json({ error: 'proyecto_no_disponible', detalle: 'Tu proyecto todavía no está disponible en el portal.' }, 404);
-    return c.json({ ...v, persistencia: o.persistencia });
+    return c.json({ ...v, persistencia: o.persistencia,
+      permisos: { ...v.permisos, editarParticipantes: !!o.participantes && acceso.permisos.editar_participantes === true } });
+  });
+
+  app.get('/participantes', async (c) => {
+    const acceso = c.get('acceso');
+    if (!o.participantes || acceso.permisos.editar_participantes !== true) return c.json({ error: 'sin_permiso', detalle: 'El acceso no tiene habilitada la captura.' }, 403);
+    try {
+      return c.json({ actual: await o.participantes.consultar(acceso) });
+    } catch {
+      return c.json({ error: 'no_disponible', detalle: 'No se pudieron consultar tus datos.' }, 503);
+    }
+  });
+
+  app.post('/participantes', bodyLimit({ maxSize: 12_000 }), async (c) => {
+    const acceso = c.get('acceso');
+    if (c.req.header(CABECERA_CSRF_PORTAL) !== VALOR_CSRF_PORTAL) return c.json({ error: 'csrf' }, 403);
+    if (!o.participantes || acceso.permisos.editar_participantes !== true) return c.json({ error: 'sin_permiso', detalle: 'El acceso no tiene habilitada la captura.' }, 403);
+    if (ediciones.bloqueado(acceso.id)) return c.json({ error: 'demasiados_intentos', detalle: 'Espera unos minutos antes de volver a guardar.' }, 429);
+    const entrada = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+    const datos = validarParticipantes(entrada?.datos);
+    const version = entrada?.version;
+    const confirmado = entrada?.confirmado;
+    if (!datos || typeof version !== 'number' || !Number.isInteger(version) || version < 0 || version >= 2_147_483_647 ||
+        typeof confirmado !== 'boolean' || (confirmado && !pasosParticipantes(datos).every(Boolean))) {
+      return c.json({ error: 'datos_invalidos', detalle: 'Revisa los datos del titular y de quien tramita.' }, 422);
+    }
+    ediciones.falla(acceso.id);
+    try {
+      return c.json({ actual: await o.participantes.guardar(acceso, { datos, version, confirmado }) });
+    } catch (error) {
+      if (error instanceof SupabaseError && error.codigo === '40001') return c.json({ error: 'conflicto', detalle: 'Otra sesión guardó una versión. Carga la versión vigente antes de editar.' }, 409);
+      if (error instanceof SupabaseError && error.codigo === '42501') return c.json({ error: 'sin_permiso', detalle: 'El acceso dejó de estar vigente.' }, 403);
+      return c.json({ error: 'no_disponible', detalle: 'No se pudieron guardar tus datos.' }, 503);
+    }
   });
 
   /** multipart/form-data con el campo `archivo`. El documento (`:id`) debe estar entre los que se le pidieron al cliente. */
-  app.post('/documentos/:id', async (c) => {
+  app.post('/documentos/:id', bodyLimit({ maxSize: MAX_BYTES + 1024 * 1024 }), async (c) => {
     const acceso = c.get('acceso');
     if (c.req.header(CABECERA_CSRF_PORTAL) !== VALOR_CSRF_PORTAL) return c.json({ error: 'csrf' }, 403);
     const permisos: PermisosPortal = acceso.permisos;
@@ -125,7 +167,8 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
     const largo = Number(c.req.header('content-length') ?? 0);
     if (largo > MAX_BYTES + 1024 * 1024) return c.json({ error: 'demasiado_grande', detalle: 'El archivo es demasiado grande (máximo 10 MB).' }, 413);
 
-    const v = await vista(acceso).catch(() => null);
+    const v = await vista(acceso).catch(() => 'error' as const);
+    if (v === 'error') return c.json({ error: 'no_disponible', detalle: 'No pudimos verificar los requisitos de tu expediente.' }, 502);
     const documento = v?.documentos?.find((d) => d.id === c.req.param('id'));
     if (!v || !documento) return c.json({ error: 'documento_no_solicitado', detalle: 'Ese documento no está entre los que se te pidieron.' }, 404);
     if (!documento.puedeSubir) return c.json({ error: 'documento_no_admite_envio', detalle: 'Ese documento no necesita un envío nuevo por ahora.' }, 409);
@@ -146,7 +189,13 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
         tamano: r.bytes.byteLength, sha256: createHash('sha256').update(r.bytes).digest('hex'), rutaAlmacen: ruta,
       });
       return c.json({ ok: true, recepcion, archivosGuardados: o.persistencia.archivos === 'supabase' }, 201);
-    } catch {
+    } catch (error) {
+      // Una respuesta SQL de rechazo confirma que la transacción no insertó la recepción.
+      // Ante una desconexión no se borra el archivo, porque la escritura pudo haberse confirmado.
+      if (error instanceof SupabaseError && error.codigo && /^(22|23|40|42|PGRST)/.test(error.codigo)) {
+        await o.almacen.retirar?.(ruta).catch(() => undefined);
+        if (error.codigo === '40001') return c.json({ error: 'documento_no_admite_envio', detalle: 'Ya existe un envío pendiente de revisión.' }, 409);
+      }
       return c.json({ error: 'no_se_pudo_guardar', detalle: 'No pudimos guardar tu archivo. Inténtalo de nuevo.' }, 502);
     }
   });

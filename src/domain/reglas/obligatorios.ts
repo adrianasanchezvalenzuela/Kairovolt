@@ -41,15 +41,27 @@ const obl002: Evaluador = (ctx, r) => {
     return [crearResultado(regla, { resultado: 'no_evaluable', explicacion: 'No hay catálogo de requisitos para comparar.', accionRecomendada: 'Configura el catálogo de requisitos.' })];
   }
   const faltantes = evaluarChecklist(ctx.requisitos, ctx.documentos).flatMap((res) => res.faltantes);
-  if (faltantes.length === 0) {
+  const pendientesIDC = ctx.requisitos.filter((requisito) => requisito.activo !== false && requisito.validacionIdc === 'pendiente')
+    .map((requisito) => crearResultado(regla, {
+      resultado: 'no_evaluable', campo: 'catalogo:' + requisito.tipo, clave: requisito.tipo, compuerta: requisito.compuerta,
+      explicacion: `IDC aún debe validar el requisito «${requisito.nombre}».`, accionRecomendada: 'Confirmar el requisito con IDC.',
+    }));
+  if (faltantes.length === 0 && pendientesIDC.length === 0) {
     return [crearResultado(regla, { resultado: 'cumple', explicacion: 'Están todos los documentos obligatorios.', accionRecomendada: 'Ninguna.' })];
   }
-  return faltantes.map((f) => crearResultado(regla, {
-    resultado: 'no_cumple', campo: `documento:${f.requisito.tipo}`, clave: f.requisito.tipo, compuerta: f.requisito.compuerta,
-    valorEsperado: f.requisito.nombre,
-    explicacion: `Falta el documento obligatorio «${f.requisito.nombre}» (${f.requisito.compuerta}).`,
-    accionRecomendada: f.requisito.aportaCliente ? 'Solicítalo al cliente.' : 'Intégralo al expediente.',
-  }));
+  return [...pendientesIDC, ...faltantes.map(({ requisito }) => {
+    const revision = ctx.revisionDocumental?.[requisito.tipo];
+    const mensaje = revision === 'recibido' ? 'Recibido y pendiente de revisión' :
+      revision === 'en_revision' ? 'En revisión por IDC' :
+      revision === 'rechazado' ? 'Requiere corrección' : 'Falta el documento obligatorio';
+    return crearResultado(regla, {
+      resultado: 'no_cumple', campo: `documento:${requisito.tipo}`, clave: requisito.tipo, compuerta: requisito.compuerta,
+      valorEsperado: requisito.nombre, explicacion: `${mensaje} «${requisito.nombre}» (${requisito.compuerta}).`,
+      accionRecomendada: revision === 'recibido' || revision === 'en_revision' ? 'Revisa el envío en la bandeja IDC.' :
+        revision === 'rechazado' ? 'Espera el reenvío y revisa la nueva versión.' :
+        requisito.aportaCliente ? 'Solicítalo al cliente.' : 'Intégralo al expediente.',
+    });
+  })];
 };
 
 /** OBL-003: datos técnicos que la configuración debe tener para poder validar el proyecto. */

@@ -13,7 +13,11 @@ function leerEnlace(): { token: string | null; vencido: boolean } {
   const h = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const token = h.get('access_token');
   const tipo = h.get('type');
-  return { token: token && (tipo === 'recovery' || tipo === null) ? token : null, vencido: h.has('error') || h.has('error_description') };
+  const q = new URLSearchParams(window.location.search);
+  return {
+    token: token && (tipo === 'recovery' || tipo === null) ? token : null,
+    vencido: [h, q].some((p) => p.has('error') || p.has('error_description') || p.has('error_code')),
+  };
 }
 
 export function Restablecer() {
@@ -26,7 +30,11 @@ export function Restablecer() {
   const [listo, setListo] = useState(false);
 
   // El token sale de la barra de direcciones y del historial en cuanto se lee: queda solo en memoria.
-  useEffect(() => { if (window.location.hash) window.history.replaceState(null, '', window.location.pathname); }, []);
+  useEffect(() => {
+    if (window.location.hash || window.location.search) {
+      window.history.replaceState(window.history.state, '', window.location.pathname);
+    }
+  }, []);
 
   const problema = nueva === '' ? null : validarContrasena(nueva);
   const noCoincide = repetir !== '' && repetir !== nueva;

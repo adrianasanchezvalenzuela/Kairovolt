@@ -7,9 +7,10 @@ export const ESTADO_DOCUMENTO: Readonly<Record<EstadoDocumentoCliente, { texto: 
   rechazado: { texto: 'Hay que enviarlo de nuevo', tono: 'error' },
   vencido: { texto: 'Vencido', tono: 'error' },
   por_vencer: { texto: 'Por vencer', tono: 'alerta' },
-  en_revision: { texto: 'En revisión', tono: 'info' },
+  en_revision: { texto: 'Recibido · pendiente de revisión', tono: 'info' },
   recibido: { texto: 'Recibido', tono: 'ok' },
-  aceptado: { texto: 'Aceptado', tono: 'ok' },
+  aceptado: { texto: 'Aceptado por IDC', tono: 'ok' },
+  no_aplica: { texto: 'No aplica', tono: 'neutro' },
 };
 
 /** Estados en los que el cliente tiene que hacer algo. */

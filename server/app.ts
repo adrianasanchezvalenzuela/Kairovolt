@@ -1,5 +1,9 @@
 import { timingSafeEqual } from 'node:crypto';
 import { Hono, type Context } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
+import { componerExpediente } from './expediente';
+import { firmarArchivo } from './archivos-expediente';
+import { CAUSAS_CORRECCION } from '../src/application/revision-documental';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { secureHeaders } from 'hono/secure-headers';
 import { normalizarCorreo, validarContrasena } from '../src/domain/usuarios/credenciales';
@@ -18,9 +22,10 @@ import { PERMISOS_PORTAL_POR_DEFECTO, type PermisosPortal } from '../src/applica
 import { catalogoParaZona, CONFIGURACION_ZONA_POR_DEFECTO } from '../src/domain/checklist/checklist';
 import { hayRequisitosPendientesDeIDC } from '../src/domain/checklist/catalogo';
 import { catalogoDeDemostracion, leerCatalogoSupabase, requisitosChecklist } from './catalogo';
-import { crearAccesosMemoria, crearRecepcionesMemoria, almacenDescarte, fuenteDemo, CODIGO_DEMO } from './portal/memoria';
+import { crearAccesosMemoria, crearParticipantesDemo, crearRecepcionesMemoria, almacenDescarte, fuenteDemo, CODIGO_DEMO } from './portal/memoria';
 import { crearFuenteZoho, fuenteVacia } from './portal/fuente-zoho';
 import { crearRutasPortal } from './portal/rutas';
+import { crearParticipantesSupabase } from './portal/participantes';
 import { derivarSecretoPortal } from './portal/sesion';
 import { crearAccesosSupabase, crearAlmacenSupabase, crearRecepcionesSupabase } from './portal/supabase';
 import { crearIntegracion } from './integracion/fabrica';
@@ -77,7 +82,8 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
       formAction: ["'self'"],
       frameAncestors: ["'none'"],
-      imgSrc: ["'self'", 'data:', 'blob:'],
+      imgSrc: ["'self'", 'data:', 'blob:', ...(config.supabase ? [config.supabase.url] : [])],
+      frameSrc: ["'self'", ...(config.supabase ? [config.supabase.url] : [])],
       objectSrc: ["'none'"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
@@ -99,8 +105,18 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
   const baseSecretoPortal = config.sessionSecret ?? config.adminToken ?? config.supabase?.secretKey ?? null;
   const supabasePortal = !portalDemo && sb !== null && config.supabase ? { sb, cfg: config.supabase } : null;
   const accesosPortal = supabasePortal ? crearAccesosSupabase(supabasePortal.sb, ahora) : crearAccesosMemoria(ahora, portalDemo);
-  const fuentePortal = portalDemo ? fuenteDemo : cli ? crearFuenteZoho(cli) : fuenteVacia;
+  const fuenteZoho = cli ? crearFuenteZoho(cli) : fuenteVacia;
+  const fuentePortal = portalDemo ? fuenteDemo : {
+    ...fuenteZoho,
+    async obtener(folio: string) {
+      if (!supabasePortal) throw new Error('Supabase no está configurado.');
+      const proyecto = await fuenteZoho.obtener(folio);
+      return proyecto && componerExpediente(supabasePortal.sb, proyecto, false);
+    },
+  };
   const portal = crearRutasPortal({
+    ...(portalDemo ? { participantes: crearParticipantesDemo() } :
+      supabasePortal ? { participantes: crearParticipantesSupabase(supabasePortal.sb) } : {}),
     accesos: accesosPortal,
     recepciones: supabasePortal ? crearRecepcionesSupabase(supabasePortal.sb) : crearRecepcionesMemoria(ahora),
     almacen: supabasePortal ? crearAlmacenSupabase(supabasePortal.cfg, fetchFn) : almacenDescarte,
@@ -269,6 +285,7 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
       return c.json({ error: 'auth_no_disponible' }, 503);
     }
     if (!actor) return c.json({ error: 'no_autorizado' }, 401);
+    c.header('Cache-Control', 'no-store');
     const escribe = c.req.method !== 'GET' && c.req.method !== 'HEAD';
     if (!bearerValido(c) && escribe && c.req.header(CABECERA_CSRF) !== VALOR_CSRF) return c.json({ error: 'csrf' }, 403);
     c.set('actor', actor);
@@ -310,10 +327,94 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
     if (!sb) return c.json({ error: 'supabase_no_configurado', detalle: 'El catálogo documental no está disponible.' }, 503);
     try {
       return c.json({ requisitos: await leerCatalogoSupabase(sb, false), demo: false });
-    } catch {
+    } catch (error) {
+      if (error instanceof SupabaseError && error.codigo === '42703') {
+        return c.json({
+          error: 'catalogo_migracion_pendiente',
+          detalle: 'El catálogo documental requiere actualizar Supabase. Pide al administrador que aplique la migración 009 y vuelve a intentar.',
+        }, 503);
+      }
       return c.json({ error: 'catalogo_no_disponible', detalle: 'No se pudo consultar el catálogo documental.' }, 503);
     }
   });
+
+  const uuid = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
+  app.use('/api/admin/revision/*', exigir('gestionar_validaciones'), async (c, next) => {
+    if (!supabasePortal) return c.json({ error: 'revision_no_disponible' }, 503);
+    await next();
+  });
+  app.get('/api/admin/revision/recepciones', async (c) => {
+    const folio = c.req.query('folio')?.trim().toUpperCase();
+    const estado = c.req.query('estado');
+    const tipo = c.req.query('tipo');
+    const desde = c.req.query('desde');
+    const offset = Number(c.req.query('offset') ?? 0);
+    if ((folio && !FOLIO.test(folio)) || (estado && !['recibido', 'en_revision', 'aceptado', 'rechazado'].includes(estado)) ||
+        (tipo && !/^[a-z_]{1,50}$/.test(tipo)) || (desde && !/^\d{4}-\d{2}-\d{2}$/.test(desde)) ||
+        !Number.isSafeInteger(offset) || offset < 0) return c.json({ error: 'filtros_invalidos' }, 400);
+    const consulta = new URLSearchParams({
+      select: 'id,recibo,folio,documento_id,documento_nombre,archivo_nombre,mime,creado_en,estado,motivo_rechazo,causa_correccion,sustituye_recepcion_id',
+      order: 'creado_en.desc,id.desc', limit: '51', offset: String(offset),
+    });
+    if (folio) consulta.set('folio', 'eq.' + folio);
+    if (estado) consulta.set('estado', 'eq.' + estado);
+    if (tipo) consulta.set('documento_id', 'eq.' + tipo);
+    if (desde) consulta.set('creado_en', 'gte.' + desde + 'T00:00:00-07:00');
+    try {
+      const filas = await sb!.rest<unknown[]>('GET', '/portal_recepciones?' + consulta);
+      c.header('Cache-Control', 'no-store');
+      return c.json({ recepciones: filas.slice(0, 50), hayMas: filas.length > 50 });
+    } catch {
+      return c.json({ error: 'revision_no_disponible' }, 503);
+    }
+  });
+
+  app.post('/api/admin/revision/recepciones/:id', bodyLimit({ maxSize: 4096 }), async (c) => {
+    const id = c.req.param('id');
+    const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+    const decision = b?.decision;
+    const causa = b?.causa;
+    const mensaje = typeof b?.mensaje === 'string' ? b.mensaje.trim() : '';
+    if (!uuid.test(id) || (decision !== 'aceptado' && decision !== 'rechazado' && decision !== 'en_revision') ||
+        (decision === 'rechazado' && (typeof causa !== 'string' || !Object.hasOwn(CAUSAS_CORRECCION, causa) ||
+          !mensaje || mensaje.length > 500))) return c.json({ error: 'decision_invalida' }, 422);
+    try {
+      const resultado = await sb!.rest('POST', '/rpc/revisar_recepcion_portal', {
+        p_id: id, p_actor: c.get('actor').uid, p_decision: decision,
+        p_causa: decision === 'rechazado' ? causa : null, p_mensaje: decision === 'rechazado' ? mensaje : null,
+      });
+      return resultado ? c.json(resultado) : c.json({ error: 'recepcion_no_encontrada' }, 404);
+    } catch (error) {
+      if (error instanceof SupabaseError && error.codigo === '40001') return c.json({ error: 'revision_en_conflicto' }, 409);
+      if (error instanceof SupabaseError && error.codigo === '22023') return c.json({ error: 'requisito_sin_mapeo' }, 422);
+      return c.json({ error: 'revision_no_disponible' }, 503);
+    }
+  });
+
+  const abrirArchivo = (tipo: 'recepcion' | 'documento') => async (c: Context<Env>) => {
+    const id = c.req.param('id') ?? '';
+    if (!uuid.test(id)) return c.json({ error: 'archivo_no_encontrado' }, 404);
+    c.header('Cache-Control', 'no-store');
+    c.header('Referrer-Policy', 'no-referrer');
+    try {
+      const ruta = tipo === 'recepcion'
+        ? (await sb!.rest<{ ruta_almacen: string; folio: string }[]>('GET',
+          '/portal_recepciones?select=ruta_almacen,folio&id=eq.' + id + '&limit=1')).map((r) => ({ path: r.ruta_almacen, folio: r.folio }))[0]
+        : (await sb!.rest<{ storage_path: string; proyectos: { folio: string } }[]>('GET',
+          '/documentos?select=storage_path,proyectos!inner(folio)&proyectos.es_demo=eq.false&storage_bucket=eq.expedientes&id=eq.' + id + '&limit=1'))
+          .map((r) => ({ path: r.storage_path, folio: r.proyectos.folio }))[0];
+      if (!ruta || !FOLIO.test(ruta.folio) || !ruta.path.startsWith(ruta.folio + '/') ||
+          (tipo === 'recepcion' && !ruta.path.startsWith(ruta.folio + '/portal/')) ||
+          ruta.path.split('/').some((parte) => !parte || parte === '.' || parte === '..')) {
+        return c.json({ error: 'archivo_no_encontrado' }, 404);
+      }
+      return c.redirect(await firmarArchivo(config.supabase!, fetchFn, ruta.path));
+    } catch {
+      return c.json({ error: 'archivo_no_disponible' }, 503);
+    }
+  };
+  app.get('/api/admin/revision/archivos/:id', abrirArchivo('recepcion'));
+  app.get('/api/admin/expediente/archivos/:id', exigir('ver_datos'), supabaseRequerido, abrirArchivo('documento'));
   const folioQuery = (c: Context) => {
     const folio = c.req.query('folio');
     return folio && !FOLIO.test(folio) ? ('invalido' as const) : (folio ?? undefined);
@@ -338,7 +439,10 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
       const folio = folioQuery(c);
       if (folio === 'invalido') return c.json({ error: 'folio_invalido' }, 400);
       const { proyectos, advertencias } = await leerProyectos(cli!, folio ? { folio } : {});
-      const kv = await Promise.all(proyectos.map(async (p) => aProyectoKv(p, p.deal ? await leerObservaciones(cli!, p.deal.id) : [])));
+      const kv = await Promise.all(proyectos.map(async (p) => {
+        const proyecto = aProyectoKv(p, p.deal ? await leerObservaciones(cli!, p.deal.id) : []);
+        return sb ? componerExpediente(sb, proyecto) : proyecto;
+      }));
       return c.json({ proyectos: kv, advertencias });
     }));
 
@@ -438,6 +542,7 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
       const permisos: PermisosPortal = {
         ver_progreso: p.ver_progreso !== false, ver_documentos_autorizados: p.ver_documentos_autorizados ?? PERMISOS_PORTAL_POR_DEFECTO.ver_documentos_autorizados,
         subir_documentos: p.subir_documentos ?? PERMISOS_PORTAL_POR_DEFECTO.subir_documentos,
+        ...(p.editar_participantes === true && { editar_participantes: true }),
       };
       if (!(await fuentePortal.obtener(folio).catch(() => null))) return c.json({ error: 'proyecto_no_encontrado', detalle: 'No existe un proyecto con ese folio en la fuente de datos.' }, 404);
       const actor = c.get('actor');

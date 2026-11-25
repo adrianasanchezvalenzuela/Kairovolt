@@ -19,6 +19,7 @@ export function AccesoPortalPanel({ folio }: { folio: string }) {
   const [error, setError] = useState<string | null>(null);
   const [dias, setDias] = useState(90);
   const [subir, setSubir] = useState(true);
+  const [captura, setCaptura] = useState(false);
   const [creando, setCreando] = useState(false);
   const [creado, setCreado] = useState<AccesoCreado | null>(null);
   const [copiado, setCopiado] = useState<'codigo' | 'enlace' | null>(null);
@@ -33,7 +34,7 @@ export function AccesoPortalPanel({ folio }: { folio: string }) {
     setCreando(true);
     setError(null);
     try {
-      setCreado(await portalAdminHttp.crear(folio, dias, { subir_documentos: subir }));
+      setCreado(await portalAdminHttp.crear(folio, dias, { subir_documentos: subir, editar_participantes: captura }));
       await cargar();
     } catch (e) {
       setError(msg(e));
@@ -60,6 +61,7 @@ export function AccesoPortalPanel({ folio }: { folio: string }) {
       {error && <AlertPanel tono="error" onCerrar={() => setError(null)}>{error}</AlertPanel>}
 
       <div className="kv-filtros">
+        <label><input type="checkbox" checked={captura} onChange={(e) => setCaptura(e.target.checked)} /> Permitir captura de participantes</label>
         <div className="kv-campo"><label htmlFor="ap-d">Vigencia</label><select id="ap-d" value={dias} onChange={(e) => setDias(Number(e.target.value))}>{[30, 90, 180, 365].map((d) => <option key={d} value={d}>{d} días</option>)}</select></div>
         <label><input type="checkbox" checked={subir} onChange={(e) => setSubir(e.target.checked)} /> Puede subir documentos</label>
         <Boton variante="primario" cargando={creando} onClick={() => void crear()}>Generar acceso</Boton>

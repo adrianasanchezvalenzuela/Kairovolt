@@ -73,6 +73,7 @@ export function supabaseFalso(opc: Opciones = {}) {
     if (m && metodo === 'PUT') { const u = usuarios.find((x) => x.id === m[1]); if (!u) return json({ msg: 'User not found' }, 404); if (cuerpo.password) u.password = cuerpo.password; return json({ id: u.id }); }
     if (m && metodo === 'DELETE') { const i = usuarios.findIndex((x) => x.id === m[1]); if (i >= 0) usuarios.splice(i, 1); return json({}); }
 
+    if (metodo === 'GET' && (p === '/rest/v1/proyectos' || p === '/rest/v1/portal_recepciones')) return json([]);
     if (p === '/rest/v1/perfiles' && metodo === 'GET') {
       const id = url.searchParams.get('id')?.replace('eq.', '');
       return json(id ? perfiles.filter((x) => x.id === id) : perfiles);
