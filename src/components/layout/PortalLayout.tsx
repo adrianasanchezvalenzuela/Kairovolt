@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { Bell, ClipboardList, FolderOpen, History, House, Info, LogOut, UserRound } from 'lucide-react';
+import { Bell, CalendarDays, ClipboardList, FolderOpen, History, House, Info, LogOut, UserRound } from 'lucide-react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { CargaPortal, MarcaPortal } from '@/components/portal/DisenoPortal';
 import { REQUIERE_ACCION } from '@/components/portal/estados';
 import { Boton } from '@/components/ui/Boton';
 import { ErrorState } from '@/components/ui/Estados';
 import { usePortal } from '@/hooks/PortalContexto';
+import { esCapturaDemo } from '@/data/demos-portal';
 
 export function PortalLayout() {
   const { fase, salir, recargar } = usePortal();
@@ -20,15 +21,22 @@ export function PortalLayout() {
   </div></div>;
 
   const v = fase.vista;
+  const soloCaptura = esCapturaDemo(v);
+  if (soloCaptura && pathname !== '/portal/inicio' && pathname !== '/portal/mis-datos') {
+    return <Navigate to="/portal/inicio" replace />;
+  }
   const avisos = v.notificaciones.filter((n) => n.tipo === 'accion').length;
   const items = [
     { to: '/portal/inicio', etiqueta: 'Inicio', Icono: House, cuenta: 0 },
     ...(v.permisos.editarParticipantes ? [{ to: '/portal/mis-datos', etiqueta: 'Mis datos', Icono: ClipboardList, cuenta: 0 }] : []),
-    { to: '/portal/documentos', etiqueta: 'Documentos', Icono: FolderOpen, cuenta: v.documentos?.filter((d) => REQUIERE_ACCION.includes(d.estado)).length ?? 0 },
-    { to: '/portal/avisos', etiqueta: 'Avisos', Icono: Bell, cuenta: avisos },
-    { to: '/portal/historial', etiqueta: 'Historial', Icono: History, cuenta: 0 },
+    ...(!soloCaptura ? [
+      { to: '/portal/documentos', etiqueta: 'Documentos', Icono: FolderOpen, cuenta: v.documentos?.filter((d) => REQUIERE_ACCION.includes(d.estado)).length ?? 0 },
+      ...(v.documentos !== null ? [{ to: '/portal/visita', etiqueta: 'Mi visita', Icono: CalendarDays, cuenta: 0 }] : []),
+      { to: '/portal/avisos', etiqueta: 'Avisos', Icono: Bell, cuenta: avisos },
+      { to: '/portal/historial', etiqueta: 'Historial', Icono: History, cuenta: 0 },
+    ] : []),
   ];
-  const titulo = items.find((i) => pathname === i.to)?.etiqueta ?? 'Portal del cliente';
+  const titulo = items.find((i) => pathname === i.to)?.etiqueta ?? (pathname === '/portal/cita' ? 'Mi visita' : 'Portal del cliente');
 
   return <div className="kvp kv-cliente">
     <a href="#contenido" className="kv-salto">Saltar al contenido</a>
@@ -51,13 +59,13 @@ export function PortalLayout() {
           {v.demo && (import.meta.env.DEV && window.location.pathname.startsWith('/demo/portal')
             ? <NavLink to="/portal/demos" className="kv-cliente-demo" title="Cambiar demostración">DEMO · Cambiar</NavLink>
             : <span className="kv-cliente-demo">DEMO</span>)}
-          <NavLink className="kv-cliente-iconbtn" to="/portal/avisos" aria-label={avisos ? 'Avisos, ' + avisos + ' pendientes' : 'Avisos'}><Bell size={19} aria-hidden="true" /></NavLink>
+          {!soloCaptura && <NavLink className="kv-cliente-iconbtn" to="/portal/avisos" aria-label={avisos ? 'Avisos, ' + avisos + ' pendientes' : 'Avisos'}><Bell size={19} aria-hidden="true" /></NavLink>}
           <span className="kv-cliente-top__cuenta"><UserRound size={16} aria-hidden="true" /> Cliente IDC</span>
           <button type="button" className="kv-cliente-iconbtn kv-cliente-top__salir" aria-label="Cerrar sesión" onClick={() => void salir()}><LogOut size={19} aria-hidden="true" /></button>
         </div>
       </header>
       <main id="contenido" className="kv-cliente-contenido" tabIndex={-1}>
-        {v.demo && <div className="kv-cliente-nota"><Info size={16} aria-hidden="true" /> Usa datos ficticios. Los archivos de demostración se descartan y la captura se borra al reiniciar.</div>}
+        {v.demo && <div className="kv-cliente-nota"><Info size={16} aria-hidden="true" /> Modo demostración con datos ficticios. Los archivos y citas de prueba se conservan solo en memoria local.</div>}
         <Outlet />
         <footer className="kv-cliente-legal"><Info size={16} aria-hidden="true" /> La preparación documental orienta tu trámite. CFE determina su aceptación y viabilidad.</footer>
       </main>

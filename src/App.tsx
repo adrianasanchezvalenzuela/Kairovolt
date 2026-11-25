@@ -27,9 +27,10 @@ import { PortalVerificarCorreo } from '@/pages/portal/PortalVerificarCorreo';
 import { CargaPortal } from '@/components/portal/DisenoPortal';
 
 const PortalDocumentos = lazy(() => import('@/pages/portal/PortalDocumentos').then((m) => ({ default: m.PortalDocumentos })));
+const PortalVisita = lazy(() => import('@/pages/portal/PortalVisita').then((m) => ({ default: m.PortalVisita })));
 const Configuracion = lazy(() => import('@/pages/Configuracion').then((m) => ({ default: m.Configuracion })));
 const PortalDemos = import.meta.env.DEV ? lazy(() => import('@/pages/portal/PortalDemos').then((m) => ({ default: m.PortalDemos }))) : null;
-const PortalCitaDemo = import.meta.env.DEV ? lazy(() => import('@/pages/portal/PortalCitaDemo').then((m) => ({ default: m.PortalCitaDemo }))) : null;
+const PortalRevisionDemo = import.meta.env.DEV ? lazy(() => import('@/pages/portal/PortalRevisionDemo').then((m) => ({ default: m.PortalRevisionDemo }))) : null;
 
 /** Galería de componentes: solo en desarrollo (no entra al build de producción). */
 const Componentes = import.meta.env.DEV ? lazy(() => import('@/pages/Componentes').then((m) => ({ default: m.Componentes }))) : null;
@@ -64,7 +65,9 @@ export function App() {
           {PortalDemos && <Route path="demos" element={<Suspense fallback={null}><PortalDemos /></Suspense>} />}
           <Route element={<PortalLayout />}>
             <Route path="inicio" element={<PortalInicio />} />
-            {PortalCitaDemo && <Route path="cita" element={<Suspense fallback={<CargaPortal etiqueta="Abriendo la cita…" />}><PortalCitaDemo /></Suspense>} />}
+            <Route path="visita" element={<Suspense fallback={<CargaPortal etiqueta="Preparando tu visita…" />}><PortalVisita /></Suspense>} />
+            <Route path="cita" element={<Suspense fallback={<CargaPortal etiqueta="Preparando tu visita…" />}><PortalVisita /></Suspense>} />
+            {PortalRevisionDemo && <Route path="revision-demo" element={<Suspense fallback={<CargaPortal etiqueta="Abriendo revisión de prueba…" />}><PortalRevisionDemo /></Suspense>} />}
             <Route path="mis-datos" element={<PortalMisDatos />} />
             <Route path="documentos" element={<Suspense fallback={<CargaPortal etiqueta="Abriendo tus documentos…" />}><PortalDocumentos /></Suspense>} />
             <Route path="avisos" element={<PortalAvisos />} />

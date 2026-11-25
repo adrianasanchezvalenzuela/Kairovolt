@@ -1,7 +1,7 @@
 import { evaluarBloqueoCompuerta } from '../compuertas/bloqueo';
 import { ORDEN_COMPUERTAS, type Compuerta, type CompuertaId } from '../compuertas/compuerta';
 import type { DocumentoExpediente, TipoDocumento } from '../documentos/documento';
-import type { GuiaPreparacion, RevisionDigital } from './preparacion';
+import type { CategoriaPortal, EmisorDocumento, GuiaPreparacion, RequiereEntregaFisica, RevisionDigital } from './preparacion';
 
 /** `fisico` = requiere impresión, firma autógrafa o entrega en oficina/ventanilla. */
 export type CanalEntrega = 'digital' | 'fisico';
@@ -18,6 +18,10 @@ export interface CondicionAplicacion {
 export interface Requisito {
   guiaPreparacion?: GuiaPreparacion;
   revisionDigital?: RevisionDigital;
+  categoriaPortal?: CategoriaPortal;
+  emisorDocumento?: EmisorDocumento;
+  permiteMultiplesArchivos?: boolean;
+  requiereEntregaFisica?: RequiereEntregaFisica;
   id: string;
   codigo?: string;
   tipo: TipoDocumento;

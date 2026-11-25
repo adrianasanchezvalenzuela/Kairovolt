@@ -1,11 +1,15 @@
 import type { CanalEntrega, CondicionAplicacion, QuienAportaDocumento, Requisito, EstadoValidacionCatalogo } from './checklist';
 import type { CompuertaId } from '../compuertas/compuerta';
 import type { TipoDocumento } from '../documentos/documento';
-import { leerGuiaPreparacion, type GuiaPreparacion, type RevisionDigital } from './preparacion';
+import { leerGuiaPreparacion, type CategoriaPortal, type EmisorDocumento, type GuiaPreparacion, type RequiereEntregaFisica, type RevisionDigital } from './preparacion';
 
 export interface RequisitoDocumental {
   guiaPreparacion?: GuiaPreparacion;
   revisionDigital?: RevisionDigital;
+  categoriaPortal?: CategoriaPortal;
+  emisorDocumento?: EmisorDocumento;
+  permiteMultiplesArchivos?: boolean;
+  requiereEntregaFisica?: RequiereEntregaFisica;
   id: string;
   codigo: string;
   tipo: TipoDocumento | null;
@@ -41,6 +45,8 @@ const CANALES: readonly CanalEntrega[] = ['digital', 'fisico'];
 
 export interface FilaCatalogoSupabase {
   guia_preparacion?: unknown; revision_digital?: RevisionDigital;
+  categoria_portal?: CategoriaPortal | null; emisor_documento?: EmisorDocumento | null;
+  permite_multiples_archivos?: boolean | null; requiere_entrega_fisica?: RequiereEntregaFisica | null;
   id: string; codigo: string; tipo_documento: string | null; nombre: string; descripcion: string | null; categoria: string;
   compuerta: string | null; canal: string; obligatorio: boolean; condicion: string | null; condiciones_aplicacion: unknown;
   requiere_vigencia: boolean; aporta_cliente: boolean; quien_aporta: string; instrucciones_cliente: string | null;
@@ -61,8 +67,13 @@ export function mapearFilaCatalogo(f: FilaCatalogoSupabase): RequisitoDocumental
   const tipo = TIPOS.includes(f.tipo_documento as TipoDocumento) ? f.tipo_documento as TipoDocumento : null;
   const compuerta = COMPUERTAS.includes(f.compuerta as CompuertaId) ? f.compuerta as CompuertaId : null;
   const canal = CANALES.includes(f.canal as CanalEntrega) ? f.canal as CanalEntrega : 'digital';
+  const guia = leerGuiaPreparacion(f.guia_preparacion);
   return {
-    guiaPreparacion: leerGuiaPreparacion(f.guia_preparacion), revisionDigital: f.revision_digital ?? 'opcional',
+    guiaPreparacion: guia, revisionDigital: f.revision_digital ?? 'opcional',
+    ...(f.categoria_portal && { categoriaPortal: f.categoria_portal }),
+    ...(f.emisor_documento && { emisorDocumento: f.emisor_documento }),
+    ...(f.permite_multiples_archivos !== undefined && f.permite_multiples_archivos !== null && { permiteMultiplesArchivos: f.permite_multiples_archivos }),
+    ...(f.requiere_entrega_fisica && { requiereEntregaFisica: f.requiere_entrega_fisica }),
     id: f.id, codigo: f.codigo, tipo, nombre: f.nombre, descripcion: f.descripcion, categoria: f.categoria,
     compuerta, canal, obligatorio: f.obligatorio, requiereVigencia: f.requiere_vigencia, aportaCliente: f.aporta_cliente,
     reubicablePorZona: false,

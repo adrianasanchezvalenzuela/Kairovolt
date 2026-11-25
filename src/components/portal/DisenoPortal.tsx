@@ -22,7 +22,8 @@ export function EnergiaPortal({ className }: { className?: string }) {
   </svg>;
 }
 
-export function IlustracionExpediente({ variante }: { variante: 'identidad' | 'documentos' | 'validacion' }) {
+export function IlustracionExpediente({ variante }: { variante: 'identidad' | 'documentos' | 'validacion' | 'visita' }) {
+  if (variante === 'visita') return <IlustracionVisita className="kv-cliente-ilustracion" />;
   return <svg aria-hidden="true" className="kv-cliente-ilustracion" viewBox="0 0 138 92" fill="none">
     <circle cx="100" cy="30" r="24" fill="#F2BD55" />
     <path d="M14 68h107M25 78h86" stroke="#176B70" strokeOpacity=".35" />
@@ -34,6 +35,125 @@ export function IlustracionExpediente({ variante }: { variante: 'identidad' | 'd
     </> : <path d="M43 42h34M43 50h39M43 58h25m21-29v9h11" stroke="#176B70" strokeWidth="2" strokeLinecap="round" />}
     <path d="M14 60V20h46m50 29h14" stroke="#176B70" strokeDasharray="3 5" strokeLinecap="round" />
   </svg>;
+}
+
+/** Ilustración SVG de carpeta documental y calendario coherente con Solar Editorial Premium. */
+export function IlustracionVisita({ className }: { className?: string }) {
+  return <svg aria-hidden="true" className={className} viewBox="0 0 210 140" fill="none">
+    <circle cx="158" cy="42" r="30" fill="#F2BD55" />
+    <path d="M18 118h174M34 127h142" stroke="#79B1B3" strokeOpacity=".4" strokeWidth="1.5" />
+    {/* Carpeta documental */}
+    <path d="M26 44h36l10 10h54a8 8 0 0 1 8 8v50a6 6 0 0 1-6 6H32a6 6 0 0 1-6-6V44Z" fill="#C9DED5" stroke="#102B40" strokeWidth="2" strokeLinejoin="round" />
+    <rect x="38" y="34" width="66" height="46" rx="5" fill="#FCFBF8" stroke="#102B40" strokeWidth="1.8" />
+    <path d="M49 48h34M49 58h44M49 68h26" stroke="#176B70" strokeWidth="2" strokeLinecap="round" />
+    <path d="M26 62h108v49a6 6 0 0 1-6 6H32a6 6 0 0 1-6-6V62Z" fill="#176B70" stroke="#102B40" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M42 78h46M42 90h30" stroke="#CDE1D9" strokeWidth="2" strokeLinecap="round" />
+    {/* Calendario superpuesto */}
+    <rect x="114" y="48" width="70" height="68" rx="10" fill="#FCFBF8" stroke="#102B40" strokeWidth="2" />
+    <path d="M114 66h70" stroke="#102B40" strokeWidth="2" />
+    <path d="M114 58a10 10 0 0 1 10-10h50a10 10 0 0 1 10 10v8h-70v-8Z" fill="#102B40" />
+    <path d="M132 42v12M166 42v12" stroke="#F2BD55" strokeWidth="3" strokeLinecap="round" />
+    <circle cx="131" cy="80" r="3.5" fill="#DCE5E8" />
+    <circle cx="149" cy="80" r="3.5" fill="#DCE5E8" />
+    <circle cx="167" cy="80" r="3.5" fill="#DCE5E8" />
+    <circle cx="131" cy="96" r="3.5" fill="#DCE5E8" />
+    <circle cx="149" cy="96" r="7.5" fill="#176B70" />
+    <path d="m145.5 96 2.5 2.5 4.8-5" stroke="#FCFBF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="167" cy="96" r="3.5" fill="#F2BD55" />
+  </svg>;
+}
+
+/** Ejemplo ilustrativo de croquis de ubicación (calles, instalación, referencias y Norte). NO es un formato oficial. */
+export function IlustracionCroquis() {
+  return <figure className="kv-guia-visual">
+    <svg role="img" aria-label="Ejemplo ilustrativo de croquis con calles, ubicación de la instalación, referencias cercanas y orientación al Norte" viewBox="0 0 420 220" fill="none">
+      <rect width="420" height="220" rx="14" fill="#FCFBF8" stroke="#D2DEE3" />
+      {/* Manzanas */}
+      <rect x="20" y="22" width="110" height="62" rx="6" fill="#F4F1E8" />
+      <rect x="166" y="22" width="128" height="62" rx="6" fill="#F4F1E8" />
+      <rect x="330" y="22" width="70" height="62" rx="6" fill="#DCE5E8" />
+      <rect x="20" y="122" width="110" height="76" rx="6" fill="#F4F1E8" />
+      <rect x="166" y="122" width="128" height="76" rx="6" fill="#C9DED5" stroke="#176B70" strokeWidth="1.5" />
+      <rect x="330" y="122" width="70" height="76" rx="6" fill="#F4F1E8" />
+      {/* Calles */}
+      <path d="M14 103h392" stroke="#102B40" strokeWidth="24" strokeOpacity=".08" />
+      <path d="M148 14v192M312 14v192" stroke="#102B40" strokeWidth="20" strokeOpacity=".08" />
+      <path d="M18 103h384" stroke="#526778" strokeDasharray="5 5" strokeWidth="1.2" />
+      {/* Etiquetas de calles */}
+      <rect x="166" y="95" width="142" height="16" rx="4" fill="#FCFBF8" />
+      <text x="172" y="107" fill="#102B40" fontSize="11" fontWeight="700" fontFamily="sans-serif">Blvd. Principal (ejemplo)</text>
+      <text x="143" y="185" fill="#526778" fontSize="10" fontWeight="600" fontFamily="sans-serif" transform="rotate(-90 143 185)">Calle Poniente</text>
+      <text x="307" y="185" fill="#526778" fontSize="10" fontWeight="600" fontFamily="sans-serif" transform="rotate(-90 307 185)">Calle Oriente</text>
+      {/* Ubicación de instalación */}
+      <circle cx="228" cy="156" r="14" fill="#176B70" />
+      <path d="m222 157 6-7 6 7h-12Z" fill="#F2BD55" />
+      <text x="178" y="186" fill="#102B40" fontSize="10.5" fontWeight="700" fontFamily="sans-serif">Tu instalación FV</text>
+      {/* Referencia cercana */}
+      <rect x="342" y="34" width="46" height="24" rx="4" fill="#FCFBF8" stroke="#526778" strokeWidth="1.2" />
+      <text x="346" y="49" fill="#102B40" fontSize="8.5" fontWeight="700" fontFamily="sans-serif">Ref. / Plaza</text>
+      <text x="336" y="75" fill="#526778" fontSize="9" fontFamily="sans-serif">Referencia</text>
+      {/* Rosa de los vientos / Norte */}
+      <g transform="translate(56 53)">
+        <circle cx="0" cy="0" r="18" fill="#FCFBF8" stroke="#102B40" strokeWidth="1.5" />
+        <path d="m0-11 4.5 11H-4.5L0-11Z" fill="#176B70" />
+        <path d="m0 11 4.5-11H-4.5L0 11Z" fill="#DCE5E8" />
+        <text x="-3.5" y="-13" fill="#102B40" fontSize="9" fontWeight="800" fontFamily="sans-serif">N</text>
+      </g>
+    </svg>
+    <figcaption>Ejemplo ilustrativo orientativo (no es un formato oficial). Incluye calles, tu instalación, referencias visibles y el Norte.</figcaption>
+  </figure>;
+}
+
+/** Guía visual ilustrativa para tomar fotografías claras del sistema fotovoltaico. */
+export function IlustracionFotosSistema() {
+  const cuadros = [
+    {
+      titulo: '1. Vista general',
+      detalle: 'Encuadra el inmueble y el área donde se ubica el sistema.',
+      svg: <>
+        <rect x="12" y="14" width="96" height="58" rx="6" fill="#DCE5E8" />
+        <circle cx="92" cy="26" r="8" fill="#F2BD55" />
+        <path d="M24 58h72V40l-36-13-36 13v18Z" fill="#FCFBF8" stroke="#102B40" strokeWidth="1.6" />
+        <path d="m42 36 18-6 18 6-6 9H48l-6-9Z" fill="#176B70" />
+      </>,
+    },
+    {
+      titulo: '2. Paneles solares',
+      detalle: 'Muestra los módulos montados con buena iluminación.',
+      svg: <>
+        <rect x="12" y="14" width="96" height="58" rx="6" fill="#E3EFED" />
+        <path d="m22 58 18-30h58L80 58H22Z" fill="#176B70" stroke="#102B40" strokeWidth="1.6" />
+        <path d="M36 44h54M48 28 36 58M68 28 56 58" stroke="#C9DED5" strokeWidth="1.4" />
+      </>,
+    },
+    {
+      titulo: '3. Inversores',
+      detalle: 'Enfoca el inversor en operación y su placa visible.',
+      svg: <>
+        <rect x="12" y="14" width="96" height="58" rx="6" fill="#F4F1E8" />
+        <rect x="38" y="21" width="44" height="44" rx="5" fill="#FCFBF8" stroke="#102B40" strokeWidth="1.8" />
+        <rect x="47" y="29" width="26" height="11" rx="2" fill="#102B40" />
+        <circle cx="51" cy="50" r="3" fill="#176B70" />
+        <path d="M58 50h14" stroke="#526778" strokeWidth="2" strokeLinecap="round" />
+      </>,
+    },
+    {
+      titulo: '4. Tablero / medidor',
+      detalle: 'Agrega protecciones o medidor cuando IDC lo solicite.',
+      svg: <>
+        <rect x="12" y="14" width="96" height="58" rx="6" fill="#FCF0D5" />
+        <rect x="30" y="22" width="26" height="42" rx="4" fill="#FCFBF8" stroke="#102B40" strokeWidth="1.6" />
+        <circle cx="77" cy="43" r="14" fill="#FCFBF8" stroke="#102B40" strokeWidth="1.6" />
+        <rect x="69" y="39" width="16" height="7" rx="1.5" fill="#176B70" />
+      </>,
+    },
+  ];
+  return <div className="kv-guia-fotos" aria-label="Ejemplos ilustrativos de fotografías del sistema">
+    {cuadros.map((c) => <figure key={c.titulo}>
+      <svg aria-hidden="true" viewBox="0 0 120 82" fill="none">{c.svg}</svg>
+      <figcaption><strong>{c.titulo}</strong><span>{c.detalle}</span></figcaption>
+    </figure>)}
+  </div>;
 }
 
 export function PortadaPortal({ titulo, children }: { titulo: string; children?: ReactNode }) {

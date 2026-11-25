@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { pasosParticipantes, validarParticipantes } from '../../src/application/participantes';
 import { SupabaseError } from '../supabase/cliente';
@@ -7,6 +7,17 @@ import type { ParticipantesPortal } from './participantes';
 import type { PreparacionPortal } from './preparacion';
 import { datosCartaDisponibles, generarCartaDemo, MARCA_CARTA_DEMO } from './carta-demo';
 import type { CartasSupabase } from './cartas-supabase';
+import { generarDocumentoIlustrativo } from './recibo-demo';
+import { participantesCasoEnviado, participantesCasoListo } from './memoria';
+import { demosPortal } from '../../src/data/demos-portal';
+import {
+  construirChecklistVisita,
+  evaluarElegibilidadCita,
+  generarICS,
+  TIPOS_VISITA,
+  type TipoVisita,
+} from '../../src/domain/citas/cita';
+import { ErrorCita, type ProveedorAgenda } from '../citas/proveedor';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { construirVistaPortal, normalizarFolio, type PermisosPortal } from '../../src/application/portal-cliente';
 import type { Requisito } from '../../src/domain/checklist/checklist';
@@ -21,6 +32,10 @@ export const VALOR_CSRF_PORTAL = 'kairovolt';
 const FOLIO = /^KV-(\d{4}|MOCK)-\d{3,}$/;
 
 export interface OpcionesPortal {
+  abrirArchivo?: (folio: string, recibo: string) => Promise<string | null>;
+  simulacion?: (folio: string, recibo: string, estado: 'rechazado' | 'prevalidado', motivo: string) => Promise<boolean>;
+  citas?: ProveedorAgenda;
+  simularCita?: boolean;
   preparacion?: PreparacionPortal;
   cartaDemo?: boolean;
   cartas?: CartasSupabase;
@@ -30,7 +45,7 @@ export interface OpcionesPortal {
   recepciones: RecepcionesPortal;
   almacen: AlmacenPortal;
   fuente: FuenteProyectoPortal;
-  catalogo: () => Promise<readonly Requisito[]>;
+  catalogo: (folio: string) => Promise<readonly Requisito[]>;
   /** Clave de firma de las cookies del portal; null = portal deshabilitado (503). */
   secreto: string | null;
   /** Qué se guarda de verdad (para informarlo en pantalla). */
@@ -62,6 +77,8 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
   const subidas = crearLimitadores(20, 10 * 60_000, ahora);
   const ediciones = crearLimitadores(40, 10 * 60_000, ahora);
   const cartasGeneradas = new Map<string, Awaited<ReturnType<typeof generarCartaDemo>>>();
+  const archivosDemo = new Map<string, { bytes: Uint8Array; mime: string }>();
+  let bytesDemo = 0;
   const hoy = () => new Date(ahora()).toISOString().slice(0, 10);
 
   app.use('*', async (c, next) => {
@@ -117,7 +134,7 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
     const proyecto = await o.fuente.obtener(acceso.folio);
     if (!proyecto) return null;
     const recepciones = await o.recepciones.listar(acceso.folio);
-    const catalogo = await o.catalogo();
+    const catalogo = await o.catalogo(acceso.folio);
     const participantes = acceso.permisos.editar_participantes === true ? await o.participantes?.consultar(acceso) : null;
     const datosAplicabilidad = participantes?.confirmado ? { tipo_titular: participantes.datos.tipoTitular } : {};
     return construirVistaPortal({ proyecto, catalogo, hoy: hoy(), recepciones, permisos: acceso.permisos, datosAplicabilidad });
@@ -131,9 +148,61 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
     if (!v) return c.json({ error: 'proyecto_no_disponible', detalle: 'Tu proyecto todavía no está disponible en el portal.' }, 404);
     const entregas = acceso.permisos.ver_documentos_autorizados ? await o.preparacion?.entregas?.(acceso).catch(() => null) : [];
     if (entregas === null) return c.json({ error: 'no_disponible', detalle: 'No pudimos consultar las entregas de tu expediente.' }, 502);
-    const notificaciones = [...v.notificaciones, ...(entregas ?? [])].sort((a, b) => b.fecha.localeCompare(a.fecha));
-    return c.json({ ...v, notificaciones, persistencia: o.persistencia,
+    const notifsCita = o.citas ? await o.citas.notificacionesDe(acceso.folio).catch(() => []) : [];
+    const historialCita = o.citas ? await o.citas.historialDe(acceso.folio).catch(() => []) : [];
+    const notificaciones = [...v.notificaciones, ...(entregas ?? []), ...notifsCita].sort((a, b) => b.fecha.localeCompare(a.fecha));
+    const historial = [...v.historial, ...historialCita].sort((a, b) => b.fecha.localeCompare(a.fecha));
+    return c.json({ ...v, notificaciones, historial, persistencia: o.persistencia,
       permisos: { ...v.permisos, editarParticipantes: !!o.participantes && acceso.permisos.editar_participantes === true } });
+  });
+
+  app.get('/archivos/:recibo', async (c) => {
+    const acceso = c.get('acceso');
+    const recibo = c.req.param('recibo');
+    if (!acceso.permisos.ver_documentos_autorizados || !/^REC-[0-9A-F]{6,12}$/.test(recibo)) {
+      return c.json({ error: 'archivo_no_disponible' }, 404);
+    }
+    try {
+      if (o.abrirArchivo) {
+        const url = await o.abrirArchivo(acceso.folio, recibo);
+        return url ? c.redirect(url) : c.json({ error: 'archivo_no_disponible' }, 404);
+      }
+      if (!o.simulacion) return c.json({ error: 'archivo_no_disponible' }, 404);
+      const r = (await o.recepciones.listar(acceso.folio)).find((item) => item.recibo === recibo);
+      if (!r) return c.json({ error: 'archivo_no_disponible' }, 404);
+      const temporal = archivosDemo.get(acceso.folio + ':' + recibo);
+      let bytes = temporal?.bytes;
+      const mime = temporal?.mime ?? 'application/pdf';
+      if (!bytes) {
+        if (recibo === 'REC-DE0004' && acceso.folio === demosPortal[1].folio) {
+          bytes = (await generarCartaDemo({ folio: acceso.folio, nombre: 'Expediente de demostración', municipio: 'Hermosillo' },
+            participantesCasoEnviado, Date.parse(r.fecha), true)).bytes;
+        } else if (r.documentoId === 'carta_poder' && acceso.folio === demosPortal[2].folio) {
+          bytes = (await generarCartaDemo({ folio: acceso.folio, nombre: 'Expediente de demostración', municipio: 'Hermosillo' },
+            participantesCasoListo, Date.parse(r.fecha), false)).bytes;
+        } else {
+          bytes = await generarDocumentoIlustrativo(r.documentoId);
+        }
+      }
+      if (!bytes) return c.json({ error: 'archivo_no_disponible' }, 404);
+      const extension = mime === 'application/pdf' ? 'pdf' : mime.split('/')[1];
+      return c.body(Uint8Array.from(bytes).buffer, 200, {
+        'Content-Type': mime, 'Content-Disposition': (c.req.query('descargar') ? 'attachment' : 'inline') + `; filename="${recibo}.${extension}"`,
+        'X-Frame-Options': 'SAMEORIGIN', 'Content-Security-Policy': "frame-ancestors 'self'",
+      });
+    } catch { return c.json({ error: 'archivo_no_disponible' }, 503); }
+  });
+
+  app.post('/simular-revision/:recibo', bodyLimit({ maxSize: 4096 }), async (c) => {
+    const acceso = c.get('acceso');
+    if (!o.simulacion || o.fuente.modo !== 'demo' || !acceso.permisos.ver_documentos_autorizados ||
+        c.req.header(CABECERA_CSRF_PORTAL) !== VALOR_CSRF_PORTAL) return c.json({ error: 'sin_permiso' }, 403);
+    const b = await c.req.json().catch(() => null) as { estado?: string; comentario?: string } | null;
+    const comentario = typeof b?.comentario === 'string' ? b.comentario.trim() : '';
+    if ((b?.estado !== 'rechazado' && b?.estado !== 'prevalidado') ||
+        (b.estado === 'rechazado' && !comentario) || comentario.length > 500) return c.json({ error: 'datos_invalidos' }, 422);
+    const ok = await o.simulacion(acceso.folio, c.req.param('recibo'), b.estado, comentario);
+    return ok ? c.json({ ok: true }) : c.json({ error: 'revision_en_conflicto' }, 409);
   });
 
   app.get('/participantes', async (c) => {
@@ -189,7 +258,7 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
       if (!proyecto || !datosCartaDisponibles(version)) return c.json({
         error: 'datos_invalidos', detalle: 'Confirma el titular y el representante o apoderado en Mis datos.',
       }, 422);
-      if (!o.cartaDemo && !(await o.catalogo()).some((r) => r.tipo === 'carta_poder' && r.activo !== false && r.generacionAutomatica)) {
+      if (!o.cartaDemo && !(await o.catalogo(acceso.folio)).some((r) => r.tipo === 'carta_poder' && r.activo !== false && r.generacionAutomatica)) {
         return c.json({ error: 'sin_permiso', detalle: 'IDC aún no habilitó la generación demostrativa.' }, 403);
       }
       const registro = await generarCartaDemo({ folio: proyecto.folio, nombre: proyecto.nombre, municipio: proyecto.municipio }, version, ahora());
@@ -274,10 +343,13 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
     const bytes = new Uint8Array(await archivo.arrayBuffer());
     const r = validarArchivo(archivo.name, archivo.type, bytes);
     if (!r.ok) return c.json({ error: r.error, detalle: r.detalle }, r.error === 'demasiado_grande' ? 413 : 422);
-    if (Buffer.from(r.bytes).includes(MARCA_CARTA_DEMO)) return c.json({
+    const reenvioFicticio = !!o.simulacion && acceso.folio === demosPortal[1].folio && documento.id === 'carta_poder';
+    if (!reenvioFicticio && Buffer.from(r.bytes).includes(MARCA_CARTA_DEMO)) return c.json({
       error: 'documento_no_admite_envio', detalle: 'La Carta Poder de demostración no se admite como documento de revisión.',
     }, 422);
 
+    if (o.simulacion && bytesDemo + bytes.byteLength > 24 * 1024 * 1024) return c.json({ error: 'demo_llena', detalle: 'Se alcanzó el límite temporal de archivos en la demo.' }, 413);
+    if (o.simulacion) bytesDemo += r.bytes.byteLength;
     subidas.falla(`s:${acceso.id}`);
     const ruta = `${acceso.folio}/portal/${randomUUID()}/${r.nombre}`;
     try {
@@ -286,8 +358,12 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
         folio: acceso.folio, accesoId: acceso.id, documentoId: documento.id, documento: documento.nombre, archivo: r.nombre, mime: r.tipo,
         tamano: r.bytes.byteLength, sha256: createHash('sha256').update(r.bytes).digest('hex'), rutaAlmacen: ruta,
       });
+      if (o.simulacion) {
+        archivosDemo.set(acceso.folio + ':' + recepcion.recibo, { bytes: r.bytes, mime: r.tipo });
+      }
       return c.json({ ok: true, recepcion, archivosGuardados: o.persistencia.archivos === 'supabase' }, 201);
     } catch (error) {
+      if (o.simulacion) bytesDemo -= r.bytes.byteLength;
       // Una respuesta SQL de rechazo confirma que la transacción no insertó la recepción.
       // Ante una desconexión no se borra el archivo, porque la escritura pudo haberse confirmado.
       if (error instanceof SupabaseError && error.codigo && /^(22|23|40|42|PGRST)/.test(error.codigo)) {
@@ -295,6 +371,201 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
         if (error.codigo === '40001') return c.json({ error: 'documento_no_admite_envio', detalle: 'Ya existe un envío pendiente de revisión.' }, 409);
       }
       return c.json({ error: 'no_se_pudo_guardar', detalle: 'No pudimos guardar tu archivo. Inténtalo de nuevo.' }, 502);
+    }
+  });
+
+  // ---- Mi próxima visita a IDC (checklist dinámico, disponibilidad y citas) ----
+  const responderErrorCita = (c: Context<Env>, e: unknown) => {
+    if (e instanceof ErrorCita) return c.json({ error: e.codigo, detalle: e.message }, e.httpStatus);
+    return c.json({ error: 'no_disponible', detalle: 'No pudimos completar la operación de cita.' }, 503);
+  };
+
+  app.get('/visita/resumen', async (c) => {
+    const acceso = c.get('acceso');
+    if (!o.citas || !acceso.permisos.ver_documentos_autorizados) return c.json({ error: 'sin_permiso' }, 403);
+    try {
+      const v = await vista(acceso);
+      if (!v) return c.json({ error: 'proyecto_no_disponible' }, 404);
+      const preparacion = (await o.preparacion?.listar(acceso).catch(() => [])) ?? [];
+      const entregasRegistradas = (await o.preparacion?.entregasRegistradas?.(acceso).catch(() => [])) ?? [];
+      const marcados = await o.citas.obtenerChecklistVisita(acceso.folio);
+      const [config, citaActiva, citas] = await Promise.all([
+        o.citas.obtenerConfig(),
+        o.citas.obtenerActiva(acceso.folio),
+        o.citas.listarPorFolio(acceso.folio),
+      ]);
+      const elegibilidad = evaluarElegibilidadCita('entrega_expediente', v, preparacion);
+      const checklist = construirChecklistVisita(v, marcados, entregasRegistradas);
+      return c.json({
+        elegibilidad,
+        checklist,
+        citaActiva,
+        citas,
+        config,
+        correoContacto: o.fuente.modo === 'demo' ? 'cliente-demo@example.invalid' : null,
+      });
+    } catch (e) {
+      return responderErrorCita(c, e);
+    }
+  });
+
+  app.post('/visita/checklist', bodyLimit({ maxSize: 4096 }), async (c) => {
+    const acceso = c.get('acceso');
+    if (!o.citas || !acceso.permisos.ver_documentos_autorizados || c.req.header(CABECERA_CSRF_PORTAL) !== VALOR_CSRF_PORTAL) {
+      return c.json({ error: 'sin_permiso' }, 403);
+    }
+    const b = await c.req.json().catch(() => null) as { marcados?: unknown } | null;
+    if (!Array.isArray(b?.marcados) || b.marcados.length > 40 || b.marcados.some((x) => typeof x !== 'string')) {
+      return c.json({ error: 'datos_invalidos', detalle: 'Lista de preparación inválida.' }, 422);
+    }
+    try {
+      const v = await vista(acceso);
+      const validos = new Set((v?.documentos ?? []).filter((d) => d.estado !== 'no_aplica').map((d) => d.id));
+      const filtrados = (b.marcados as string[]).filter((id) => validos.has(id));
+      const guardados = await o.citas.guardarChecklistVisita(acceso.folio, acceso.id, filtrados);
+      return c.json({ marcados: guardados });
+    } catch (e) {
+      return responderErrorCita(c, e);
+    }
+  });
+
+  app.get('/visita/disponibilidad', async (c) => {
+    const acceso = c.get('acceso');
+    if (!o.citas || !acceso.permisos.ver_documentos_autorizados) return c.json({ error: 'sin_permiso' }, 403);
+    const mes = c.req.query('mes') ?? hoy().slice(0, 7);
+    const tipoParam = c.req.query('tipo') ?? 'entrega_expediente';
+    const tipo = TIPOS_VISITA.find((t) => t === tipoParam);
+    if (!tipo || !/^\d{4}-\d{2}$/.test(mes)) return c.json({ error: 'datos_invalidos', detalle: 'Parámetros de calendario inválidos.' }, 422);
+    try {
+      return c.json(await o.citas.consultarDisponibilidad(mes, tipo));
+    } catch (e) {
+      return responderErrorCita(c, e);
+    }
+  });
+
+  app.post('/visita/solicitar', bodyLimit({ maxSize: 4096 }), async (c) => {
+    const acceso = c.get('acceso');
+    if (!o.citas || !acceso.permisos.ver_documentos_autorizados || c.req.header(CABECERA_CSRF_PORTAL) !== VALOR_CSRF_PORTAL) {
+      return c.json({ error: 'sin_permiso' }, 403);
+    }
+    const limite = 'cita:' + acceso.id;
+    if (ediciones.bloqueado(limite)) return c.json({ error: 'demasiados_intentos', detalle: 'Espera un momento antes de enviar otra solicitud.' }, 429);
+    ediciones.falla(limite);
+    const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+    const tipoVisita = TIPOS_VISITA.find((t) => t === b?.tipoVisita) as TipoVisita | undefined;
+    const fecha = typeof b?.fecha === 'string' ? b.fecha.trim() : '';
+    const horaInicio = typeof b?.horaInicio === 'string' ? b.horaInicio.trim() : '';
+    const notasCliente = typeof b?.notasCliente === 'string' ? b.notasCliente.trim().slice(0, 500) || null : null;
+    const idempotencyKey = typeof b?.idempotencyKey === 'string' && b.idempotencyKey.trim().length >= 8 && b.idempotencyKey.trim().length <= 80
+      ? b.idempotencyKey.trim() : null;
+    if (!tipoVisita || !/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !/^\d{2}:\d{2}$/.test(horaInicio)) {
+      return c.json({ error: 'datos_invalidos', detalle: 'Elige tipo de visita, fecha y horario válidos.' }, 422);
+    }
+    try {
+      const v = await vista(acceso);
+      if (!v) return c.json({ error: 'proyecto_no_disponible' }, 404);
+      const preparacion = (await o.preparacion?.listar(acceso).catch(() => [])) ?? [];
+      const elegibilidad = evaluarElegibilidadCita(tipoVisita, v, preparacion);
+      const resultado = await o.citas.solicitar({
+        folio: acceso.folio,
+        accesoId: acceso.id,
+        tipoVisita,
+        fecha,
+        horaInicio,
+        notasCliente,
+        idempotencyKey,
+        expedienteListo: elegibilidad.permitida,
+        motivoNoListo: elegibilidad.motivoBloqueo,
+      });
+      return c.json(resultado, resultado.duplicada ? 200 : 201);
+    } catch (e) {
+      return responderErrorCita(c, e);
+    }
+  });
+
+  app.post('/visita/:id/reprogramar', bodyLimit({ maxSize: 4096 }), async (c) => {
+    const acceso = c.get('acceso');
+    if (!o.citas || !acceso.permisos.ver_documentos_autorizados || c.req.header(CABECERA_CSRF_PORTAL) !== VALOR_CSRF_PORTAL) {
+      return c.json({ error: 'sin_permiso' }, 403);
+    }
+    const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+    const accion = b?.accion === 'aceptar_propuesta' ? 'aceptar_propuesta' : 'solicitar_cambio';
+    const nuevaFecha = typeof b?.nuevaFecha === 'string' ? b.nuevaFecha.trim() : null;
+    const nuevaHoraInicio = typeof b?.nuevaHoraInicio === 'string' ? b.nuevaHoraInicio.trim() : null;
+    const motivo = typeof b?.motivo === 'string' ? b.motivo.trim().slice(0, 500) : null;
+    try {
+      const cita = await o.citas.accionCliente({
+        folio: acceso.folio,
+        citaId: c.req.param('id'),
+        accion,
+        nuevaFecha,
+        nuevaHoraInicio,
+        motivo,
+      });
+      return c.json({ cita });
+    } catch (e) {
+      return responderErrorCita(c, e);
+    }
+  });
+
+  app.post('/visita/:id/cancelar', bodyLimit({ maxSize: 2048 }), async (c) => {
+    const acceso = c.get('acceso');
+    if (!o.citas || !acceso.permisos.ver_documentos_autorizados || c.req.header(CABECERA_CSRF_PORTAL) !== VALOR_CSRF_PORTAL) {
+      return c.json({ error: 'sin_permiso' }, 403);
+    }
+    const b = await c.req.json().catch(() => null) as { motivo?: unknown } | null;
+    const motivo = typeof b?.motivo === 'string' ? b.motivo.trim().slice(0, 500) : null;
+    try {
+      const cita = await o.citas.accionCliente({
+        folio: acceso.folio,
+        citaId: c.req.param('id'),
+        accion: 'cancelar',
+        motivo,
+      });
+      return c.json({ cita });
+    } catch (e) {
+      return responderErrorCita(c, e);
+    }
+  });
+
+  app.get('/visita/:id/ics', async (c) => {
+    const acceso = c.get('acceso');
+    if (!o.citas || !acceso.permisos.ver_documentos_autorizados) return c.json({ error: 'sin_permiso' }, 403);
+    const cita = await o.citas.obtenerPorId(c.req.param('id')).catch(() => null);
+    if (!cita || cita.folio !== acceso.folio) return c.json({ error: 'cita_no_encontrada' }, 404);
+    const ics = generarICS(cita);
+    if (!ics) return c.json({ error: 'transicion_invalida', detalle: 'El archivo de calendario solo está disponible cuando tu cita está confirmada.' }, 409);
+    return c.body(ics, 200, {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${cita.referencia}.ics"`,
+    });
+  });
+
+  /** Simulador exclusivo del entorno local de demos para probar la respuesta de IDC en Demo 3. Nunca se monta en /api/portal. */
+  app.post('/simular-cita/:id', bodyLimit({ maxSize: 4096 }), async (c) => {
+    const acceso = c.get('acceso');
+    if (!o.simularCita || !o.citas || o.fuente.modo !== 'demo' || c.req.header(CABECERA_CSRF_PORTAL) !== VALOR_CSRF_PORTAL) {
+      return c.json({ error: 'sin_permiso' }, 403);
+    }
+    const cita = await o.citas.obtenerPorId(c.req.param('id')).catch(() => null);
+    if (!cita || cita.folio !== acceso.folio) return c.json({ error: 'cita_no_encontrada' }, 404);
+    const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+    const acciones = ['confirmar', 'proponer_horario', 'reprogramar', 'cancelar', 'realizada'] as const;
+    const accion = acciones.find((a) => a === b?.accion);
+    if (!accion) return c.json({ error: 'datos_invalidos' }, 422);
+    try {
+      const actualizada = await o.citas.accionAdmin({
+        citaId: cita.id,
+        actorId: null,
+        accion,
+        nuevaFecha: typeof b?.nuevaFecha === 'string' ? b.nuevaFecha.trim() : null,
+        nuevaHoraInicio: typeof b?.nuevaHoraInicio === 'string' ? b.nuevaHoraInicio.trim() : null,
+        motivo: typeof b?.motivo === 'string' ? b.motivo.trim().slice(0, 500) : null,
+        ubicacionAutorizada: typeof b?.ubicacionAutorizada === 'string' ? b.ubicacionAutorizada.trim().slice(0, 240) : undefined,
+      });
+      return c.json({ cita: actualizada });
+    } catch (e) {
+      return responderErrorCita(c, e);
     }
   });
 

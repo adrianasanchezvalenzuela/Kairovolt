@@ -1,10 +1,36 @@
 import { ErrorPortal, type CodigoErrorPortal, type EstadoPortal, type PortalRepositorio, type ResultadoSubida, type VistaPortalConEstado } from '@/application/portal-acceso';
 import type { VersionParticipantes } from '@/application/participantes';
 import type { ProgresoPreparacion } from '@/domain/checklist/preparacion';
+import type {
+  AccionIdcCita,
+  ChecklistVisitaItem,
+  CitaPortal,
+  ConfigAgendaIDC,
+  DiaDisponibilidad,
+  ElegibilidadCita,
+  TipoVisita,
+} from '@/domain/citas/cita';
+
+export interface ResumenVisitaPortal {
+  elegibilidad: ElegibilidadCita;
+  checklist: ChecklistVisitaItem[];
+  citaActiva: CitaPortal | null;
+  citas: CitaPortal[];
+  config: ConfigAgendaIDC;
+  correoContacto: string | null;
+}
 
 const CSRF = { 'X-Requested-With': 'kairovolt' };
 const rutaPortal = () => import.meta.env.DEV && window.location.pathname.startsWith('/demo/portal')
   ? '/api/demo/portal' : '/api/portal';
+
+export const archivoPortalUrl = (recibo: string, descargar = false) =>
+  rutaPortal() + '/archivos/' + encodeURIComponent(recibo) + (descargar ? '?descargar=1' : '');
+
+export async function simularRevisionPortal(recibo: string, estado: 'rechazado' | 'prevalidado', comentario: string) {
+  const { status, data } = await llamar('POST', rutaPortal() + '/simular-revision/' + encodeURIComponent(recibo), { estado, comentario });
+  if (status !== 200) throw errorDeRespuesta(status, data);
+}
 const CODIGOS: readonly CodigoErrorPortal[] = [
   'acceso_invalido', 'demasiados_intentos', 'sin_sesion', 'sin_permiso', 'no_disponible', 'proyecto_no_disponible', 'documento_no_solicitado',
   'documento_no_admite_envio', 'tipo_no_permitido', 'tipo_no_coincide', 'vacio', 'demasiado_grande', 'no_se_pudo_guardar',
@@ -70,6 +96,66 @@ export async function historialCartasPortal(): Promise<{ href: string; plantilla
   if (status !== 200) throw errorDeRespuesta(status, data);
   const historial = data.historial as { id: string; plantilla: string; generado_en: string }[];
   return historial.map((r) => ({ ...r, href: rutaPortal() + '/carta-poder-demo/' + encodeURIComponent(r.id) }));
+}
+
+export async function resumenVisitaPortal(): Promise<ResumenVisitaPortal> {
+  const { status, data } = await llamar('GET', rutaPortal() + '/visita/resumen');
+  if (status !== 200) throw errorDeRespuesta(status, data);
+  return data as unknown as ResumenVisitaPortal;
+}
+
+export async function guardarChecklistVisitaPortal(marcados: string[]): Promise<string[]> {
+  const { status, data } = await llamar('POST', rutaPortal() + '/visita/checklist', { marcados });
+  if (status !== 200) throw errorDeRespuesta(status, data);
+  return data.marcados as string[];
+}
+
+export async function disponibilidadVisitaPortal(
+  mes: string,
+  tipo: TipoVisita,
+): Promise<{ config: ConfigAgendaIDC; dias: DiaDisponibilidad[] }> {
+  const q = new URLSearchParams({ mes, tipo });
+  const { status, data } = await llamar('GET', rutaPortal() + '/visita/disponibilidad?' + q);
+  if (status !== 200) throw errorDeRespuesta(status, data);
+  return data as unknown as { config: ConfigAgendaIDC; dias: DiaDisponibilidad[] };
+}
+
+export async function solicitarCitaPortal(entrada: {
+  tipoVisita: TipoVisita;
+  fecha: string;
+  horaInicio: string;
+  notasCliente?: string;
+  idempotencyKey: string;
+}): Promise<{ cita: CitaPortal; duplicada: boolean }> {
+  const { status, data } = await llamar('POST', rutaPortal() + '/visita/solicitar', entrada);
+  if (status !== 201 && status !== 200) throw errorDeRespuesta(status, data);
+  return data as unknown as { cita: CitaPortal; duplicada: boolean };
+}
+
+export async function reprogramarCitaPortal(
+  id: string,
+  entrada: { accion: 'solicitar_cambio' | 'aceptar_propuesta'; nuevaFecha?: string; nuevaHoraInicio?: string; motivo?: string },
+): Promise<CitaPortal> {
+  const { status, data } = await llamar('POST', rutaPortal() + '/visita/' + encodeURIComponent(id) + '/reprogramar', entrada);
+  if (status !== 200) throw errorDeRespuesta(status, data);
+  return data.cita as CitaPortal;
+}
+
+export async function cancelarCitaPortal(id: string, motivo: string): Promise<CitaPortal> {
+  const { status, data } = await llamar('POST', rutaPortal() + '/visita/' + encodeURIComponent(id) + '/cancelar', { motivo });
+  if (status !== 200) throw errorDeRespuesta(status, data);
+  return data.cita as CitaPortal;
+}
+
+export const icsCitaPortalUrl = (id: string) => rutaPortal() + '/visita/' + encodeURIComponent(id) + '/ics';
+
+export async function simularAccionCitaDemo(
+  id: string,
+  entrada: { accion: AccionIdcCita; nuevaFecha?: string; nuevaHoraInicio?: string; motivo?: string; ubicacionAutorizada?: string },
+): Promise<CitaPortal> {
+  const { status, data } = await llamar('POST', rutaPortal() + '/simular-cita/' + encodeURIComponent(id), entrada);
+  if (status !== 200) throw errorDeRespuesta(status, data);
+  return data.cita as CitaPortal;
 }
 
 export const portalHttp: PortalRepositorio = {

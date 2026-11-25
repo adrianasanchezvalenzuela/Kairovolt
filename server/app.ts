@@ -25,9 +25,14 @@ import { catalogoDeDemostracion, leerCatalogoSupabase, requisitosChecklist } fro
 import { crearAccesosMemoria, crearParticipantesDemo, crearRecepcionesMemoria, almacenDescarte, fuenteDemo, fuenteDemosLocales, CODIGO_DEMO } from './portal/memoria';
 import { crearFuenteZoho, fuenteVacia } from './portal/fuente-zoho';
 import { crearRutasPortal } from './portal/rutas';
+import { demosPortal } from '../src/data/demos-portal';
 import { crearParticipantesSupabase } from './portal/participantes';
 import { crearPreparacionDemo, crearPreparacionSupabase } from './portal/preparacion';
 import { crearCartasSupabase } from './portal/cartas-supabase';
+import { crearCitasMemoria } from './citas/memoria';
+import { crearCitasSupabase } from './citas/supabase';
+import { ErrorCita } from './citas/proveedor';
+import { ESTADOS_CITA, TIPOS_VISITA, type EstadoCita, type TipoVisita } from '../src/domain/citas/cita';
 import { derivarSecretoPortal } from './portal/sesion';
 import { crearAccesosSupabase, crearAlmacenSupabase, crearRecepcionesSupabase } from './portal/supabase';
 import { crearIntegracion } from './integracion/fabrica';
@@ -116,7 +121,16 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
       return proyecto && componerExpediente(supabasePortal.sb, proyecto, false);
     },
   };
+  const citasPortal = supabasePortal ? crearCitasSupabase(supabasePortal.sb, ahora) : crearCitasMemoria(ahora);
   const portal = crearRutasPortal({
+    ...(supabasePortal && { abrirArchivo: async (folio: string, recibo: string) => {
+      const rows = await supabasePortal.sb.rest<{ ruta_almacen: string }[]>('GET', '/portal_recepciones?select=ruta_almacen&folio=eq.' +
+        encodeURIComponent(folio) + '&recibo=eq.' + encodeURIComponent(recibo) + '&limit=1');
+      const ruta = rows[0]?.ruta_almacen;
+      if (!ruta?.startsWith(folio + '/portal/') || ruta.split('/').some((s) => !s || s === '..' || s === '.')) return null;
+      return firmarArchivo(supabasePortal.cfg, fetchFn, ruta);
+    } }),
+    citas: citasPortal,
     ...(portalDemo ? { preparacion: crearPreparacionDemo(), cartaDemo: true } :
       supabasePortal ? { preparacion: crearPreparacionSupabase(supabasePortal.sb),
         cartas: crearCartasSupabase(supabasePortal.sb, supabasePortal.cfg, crearAlmacenSupabase(supabasePortal.cfg, fetchFn), fetchFn) } : {}),
@@ -137,16 +151,21 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
     ahora,
   });
   app.route('/api/portal', portal);
-  if (demoLocal) {
+  const citasDemoLocal = demoLocal ? crearCitasMemoria(ahora) : null;
+  if (demoLocal && citasDemoLocal) {
+    const recepcionesDemo = crearRecepcionesMemoria(ahora, true);
     app.route('/api/demo/portal', crearRutasPortal({
-      preparacion: crearPreparacionDemo(),
+      simulacion: recepcionesDemo.simular,
+      simularCita: true,
+      citas: citasDemoLocal,
+      preparacion: crearPreparacionDemo(true),
       cartaDemo: true,
       accesos: crearAccesosMemoria(ahora, true, true),
-      recepciones: crearRecepcionesMemoria(ahora, true),
+      recepciones: recepcionesDemo,
       participantes: crearParticipantesDemo(true),
       almacen: almacenDescarte,
       fuente: fuenteDemosLocales,
-      catalogo: async () => requisitosChecklist(catalogoDeDemostracion()),
+      catalogo: async (folio) => requisitosChecklist(catalogoDeDemostracion(folio === demosPortal[1].folio || folio === demosPortal[2].folio)),
       secreto: derivarSecretoPortal(crypto.randomUUID()),
       cookie: { nombre: 'kv_portal_demo', ruta: '/api/demo/portal' },
       persistencia: { accesos: 'memoria', archivos: 'no_se_guardan' },
@@ -593,6 +612,101 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
       const auditado = !simular && integracion.modo === 'real' ? await auditarSync(c.get('actor'), folio, 'proyecto_sincronizado', { ok: r.ok, pasos: r.pasos.length }) : undefined;
       return c.json({ ...r, etiqueta: integracion.etiqueta, ...(auditado !== undefined && { auditado }) });
     }));
+
+  // ---- Panel interno IDC: administración de citas de visita (protegido por rol en backend) ----
+  const citasAdmin = () => citasPortal;
+  app.use('/api/admin/citas/*', exigir('gestionar_validaciones'));
+  app.use('/api/admin/citas', exigir('gestionar_validaciones'));
+
+  app.get('/api/admin/citas', async (c) => {
+    const folio = c.req.query('folio')?.trim().toUpperCase();
+    const estadoParam = c.req.query('estado');
+    const fecha = c.req.query('fecha');
+    const estado = estadoParam ? ESTADOS_CITA.find((e) => e === estadoParam) as EstadoCita | undefined : undefined;
+    if ((folio && !FOLIO.test(folio)) || (estadoParam && !estado) || (fecha && !/^\d{4}-\d{2}-\d{2}$/.test(fecha))) {
+      return c.json({ error: 'filtros_invalidos' }, 400);
+    }
+    try {
+      const citas = await citasAdmin().listarAdmin({ folio, estado, fecha });
+      const configAgenda = await citasAdmin().obtenerConfig();
+      return c.json({ citas, config: configAgenda, demo: portalDemo });
+    } catch {
+      return c.json({ error: 'citas_no_disponibles' }, 503);
+    }
+  });
+
+  app.get('/api/admin/citas/config', async (c) => {
+    try {
+      return c.json({ config: await citasAdmin().obtenerConfig() });
+    } catch {
+      return c.json({ error: 'citas_no_disponibles' }, 503);
+    }
+  });
+
+  app.patch('/api/admin/citas/config', exigir('gestionar_portal'), bodyLimit({ maxSize: 4096 }), async (c) => {
+    const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+    if (!b || !citasAdmin().actualizarConfig) return c.json({ error: 'datos_invalidos' }, 400);
+    const cambios: Record<string, unknown> = {};
+    if (Array.isArray(b.diasLaborables) && b.diasLaborables.every((d) => Number.isInteger(d) && d >= 1 && d <= 7)) {
+      cambios.diasLaborables = b.diasLaborables;
+    }
+    if (Array.isArray(b.horariosInicio) && b.horariosInicio.every((h) => typeof h === 'string' && /^\d{2}:\d{2}$/.test(h))) {
+      cambios.horariosInicio = b.horariosInicio;
+    }
+    if (Array.isArray(b.diasNoLaborables) && b.diasNoLaborables.every((f) => typeof f === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f))) {
+      cambios.diasNoLaborables = b.diasNoLaborables;
+    }
+    if (typeof b.duracionMinutos === 'number' && Number.isInteger(b.duracionMinutos) && b.duracionMinutos >= 15 && b.duracionMinutos <= 240) {
+      cambios.duracionMinutos = b.duracionMinutos;
+    }
+    if (b.ubicacionAutorizada === null || (typeof b.ubicacionAutorizada === 'string' && b.ubicacionAutorizada.length <= 240)) {
+      cambios.ubicacionAutorizada = typeof b.ubicacionAutorizada === 'string' ? b.ubicacionAutorizada.trim() || null : null;
+    }
+    if (Array.isArray(b.tiposHabilitados) && b.tiposHabilitados.every((t) => TIPOS_VISITA.includes(t as TipoVisita))) {
+      cambios.tiposHabilitados = b.tiposHabilitados;
+    }
+    if (typeof b.disponibilidadPublicada === 'boolean') {
+      cambios.disponibilidadPublicada = b.disponibilidadPublicada;
+    }
+    try {
+      const actual = await citasAdmin().actualizarConfig!(cambios, c.get('actor').uid);
+      if (sb) {
+        await registrarEvento(sb, c.get('actor'), { entidad: 'portal_agenda_config', folio: null, accion: 'agenda_configurada', detalles: cambios });
+      }
+      return c.json({ config: actual });
+    } catch {
+      return c.json({ error: 'citas_no_disponibles' }, 503);
+    }
+  });
+
+  app.post('/api/admin/citas/:id/accion', bodyLimit({ maxSize: 4096 }), async (c) => {
+    const id = c.req.param('id');
+    const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+    const acciones = ['confirmar', 'proponer_horario', 'reprogramar', 'cancelar', 'realizada'] as const;
+    const accion = acciones.find((a) => a === b?.accion);
+    if (!uuid.test(id) || !accion) return c.json({ error: 'datos_invalidos' }, 422);
+    try {
+      const cita = await citasAdmin().accionAdmin({
+        citaId: id,
+        actorId: c.get('actor').uid,
+        accion,
+        nuevaFecha: typeof b?.nuevaFecha === 'string' ? b.nuevaFecha.trim() : null,
+        nuevaHoraInicio: typeof b?.nuevaHoraInicio === 'string' ? b.nuevaHoraInicio.trim() : null,
+        motivo: typeof b?.motivo === 'string' ? b.motivo.trim().slice(0, 500) : null,
+        ubicacionAutorizada: typeof b?.ubicacionAutorizada === 'string' ? b.ubicacionAutorizada.trim().slice(0, 240) : undefined,
+      });
+      if (sb) {
+        await registrarEvento(sb, c.get('actor'), {
+          entidad: 'portal_cita', entidadId: cita.id, folio: cita.folio, accion: 'cita_' + accion,
+          detalles: { referencia: cita.referencia, estado: cita.estado },
+        });
+      }
+      return c.json({ cita });
+    } catch (e) {
+      if (e instanceof ErrorCita) return c.json({ error: e.codigo, detalle: e.message }, e.httpStatus);
+      return c.json({ error: 'citas_no_disponibles' }, 503);
+    }
+  });
 
   // ---- Accesos del portal del cliente (los genera y revoca el personal; el código en claro se muestra UNA vez). ----
   app.use('/api/admin/portal/*', exigir('gestionar_portal'));

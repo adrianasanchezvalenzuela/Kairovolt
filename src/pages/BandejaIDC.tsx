@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { CAUSAS_CORRECCION } from '@/application/revision-documental';
+import { CitasIdcPanel } from '@/components/feature/CitasIdcPanel';
 import { DocumentPreview } from '@/components/feature/DocumentPreview';
 import { AlertPanel } from '@/components/ui/AlertPanel';
 import { Boton } from '@/components/ui/Boton';
@@ -53,6 +54,7 @@ export function BandejaIDC() {
   const [intento, setIntento] = useState(0);
   const [catalogo, setCatalogo] = useState<RequisitoDocumental[] | null>(null);
   const [entrega, setEntrega] = useState({ folio: '', tipo: '', validar: false });
+  const [pestana, setPestana] = useState<'documentos' | 'citas'>('documentos');
   const requisito = catalogo?.find((r) => r.tipo === seleccion?.documento_id);
 
   useEffect(() => {
@@ -131,6 +133,15 @@ export function BandejaIDC() {
 
   return <>
     <PageHeader titulo="Bandeja IDC" />
+    <div className="kv-filtros" role="tablist" aria-label="Secciones de la bandeja IDC" style={{ marginBottom: 14 }}>
+      <Boton type="button" variante={pestana === 'documentos' ? 'primario' : 'secundario'} onClick={() => setPestana('documentos')}>
+        Recepciones documentales
+      </Boton>
+      <Boton type="button" variante={pestana === 'citas' ? 'primario' : 'secundario'} onClick={() => setPestana('citas')}>
+        Solicitudes de cita
+      </Boton>
+    </div>
+    {pestana === 'citas' ? <CitasIdcPanel /> : <>
     <details>
       <summary>Registrar entrega física sin copia digital</summary>
       <form className="kv-filtros" onSubmit={(e) => void guardarEntrega(e)}>
@@ -216,5 +227,6 @@ export function BandejaIDC() {
         </>}
       </section>
     </div>
+    </>}
   </>;
 }

@@ -66,17 +66,19 @@ export function crearAccesosSupabase(sb: ClienteSupabase, ahora: () => number = 
 }
 
 interface FilaRecepcion {
+  revisado_en?: string | null; mime?: string;
   id?: string; sustituye_recepcion_id?: string | null;
   recibo: string; documento_id: string; documento_nombre: string; archivo_nombre: string; creado_en: string;
   estado: Recepcion['estado']; motivo_rechazo: string | null; causa_correccion?: string | null;
 }
-const aRecepcion = (f: FilaRecepcion): Recepcion => ({ recibo: f.recibo, documentoId: f.documento_id, documento: f.documento_nombre, archivo: f.archivo_nombre, fecha: f.creado_en, estado: f.estado, motivo: f.motivo_rechazo, causa: f.causa_correccion ?? null });
+const aRecepcion = (f: FilaRecepcion): Recepcion => ({ recibo: f.recibo, documentoId: f.documento_id, documento: f.documento_nombre, archivo: f.archivo_nombre, fecha: f.creado_en, estado: f.estado, motivo: f.motivo_rechazo, causa: f.causa_correccion ?? null,
+  mime: f.mime, revisadoEn: f.revisado_en, ...(f.revisado_en && { revisorPublico: 'Equipo IDC' }) });
 
 /** Recepciones en `portal_recepciones` (migración 007). */
 export function crearRecepcionesSupabase(sb: ClienteSupabase): RecepcionesPortal {
   return {
     async listar(folio) {
-      const filas = await sb.rest<FilaRecepcion[]>('GET', `/portal_recepciones?folio=eq.${q(folio)}&select=id,sustituye_recepcion_id,recibo,documento_id,documento_nombre,archivo_nombre,creado_en,estado,motivo_rechazo,causa_correccion&order=creado_en.desc,id.desc&limit=200`);
+      const filas = await sb.rest<FilaRecepcion[]>('GET', `/portal_recepciones?folio=eq.${q(folio)}&select=id,sustituye_recepcion_id,recibo,documento_id,documento_nombre,archivo_nombre,creado_en,estado,motivo_rechazo,causa_correccion,mime,revisado_en&order=creado_en.desc,id.desc&limit=200`);
       const sustituidas = new Set(filas.map((f) => f.sustituye_recepcion_id));
       return filas.map((f) => ({ ...aRecepcion(f), sustituida: sustituidas.has(f.id) }));
     },

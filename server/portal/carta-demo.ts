@@ -1,8 +1,8 @@
 import { randomUUID, createHash } from 'node:crypto';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib';
 import type { VersionParticipantes } from '../../src/application/participantes';
 
-export const VERSION_CARTA_DEMO = 'demo-1';
+export const VERSION_CARTA_DEMO = 'demo-2';
 export const MARCA_CARTA_DEMO = 'KAIROVOLT-CARTA-DEMO-SIN-VALIDEZ';
 
 export function datosCartaDisponibles(version: VersionParticipantes | null): version is VersionParticipantes {
@@ -11,7 +11,29 @@ export function datosCartaDisponibles(version: VersionParticipantes | null): ver
   return (tramita === 'apoderado' && !!apoderado) || (tramita === 'representante' && !!representante);
 }
 
-export async function generarCartaDemo(proyecto: { folio: string; nombre: string; municipio: string }, version: VersionParticipantes, ahora: number) {
+function lineas(texto: string, fuente: PDFFont, tamano: number, ancho: number): string[] {
+  const salida: string[] = [];
+  let actual = '';
+  for (const caracter of texto.normalize('NFC')) {
+    let letra = caracter;
+    try { fuente.encodeText(letra); } catch { letra = '?'; }
+    if (fuente.widthOfTextAtSize(actual + letra, tamano) > ancho) {
+      const corte = actual.lastIndexOf(' ');
+      if (corte > 0) {
+        salida.push(actual.slice(0, corte));
+        actual = actual.slice(corte + 1);
+      } else {
+        salida.push(actual);
+        actual = '';
+      }
+    }
+    actual += letra;
+  }
+  if (actual) salida.push(actual.trim());
+  return salida;
+}
+
+export async function generarCartaDemo(proyecto: { folio: string; nombre: string; municipio: string }, version: VersionParticipantes, ahora: number, muestraObservada = false) {
   const id = randomUUID();
   const fecha = new Date(ahora).toISOString();
   const pdf = await PDFDocument.create();
@@ -19,51 +41,58 @@ export async function generarCartaDemo(proyecto: { folio: string; nombre: string
   pdf.setTitle('Carta Poder de demostración');
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const navy = rgb(.063, .169, .251);
-  const teal = rgb(.09, .42, .44);
+  const tinta = rgb(.07, .12, .17);
+  const tenue = rgb(.28, .31, .34);
+  const aviso = 'DOCUMENTO DE DEMOSTRACIÓN — SIN VALIDEZ LEGAL';
   const page = pdf.addPage([612, 792]);
-  page.drawRectangle({ x: 0, y: 670, width: 612, height: 122, color: navy });
-  page.drawText('KairóVolt', { x: 42, y: 745, size: 15, font: bold, color: rgb(1, 1, 1) });
-  page.drawText('Carta Poder', { x: 42, y: 691, size: 34, font: bold, color: rgb(1, 1, 1) });
-  page.drawRectangle({ x: 42, y: 615, width: 528, height: 31, color: rgb(.98, .91, .73) });
-  page.drawText('DOCUMENTO DE DEMOSTRACIÓN — SIN VALIDEZ LEGAL', { x: 53, y: 626, size: 12, font: bold, color: navy });
+  const centrado = (texto: string, y: number, tamano: number, fuente: PDFFont) =>
+    page.drawText(texto, { x: (612 - fuente.widthOfTextAtSize(texto, tamano)) / 2, y, size: tamano, font: fuente, color: tinta });
+  centrado('CARTA PODER', 724, 19, bold);
+  page.drawRectangle({ x: 65, y: 673, width: 482, height: 24, color: rgb(.98, .94, .82) });
+  centrado(aviso, 681, 10, bold);
   const { titular, apoderado, representante, testigos, tramita } = version.datos;
   const designado = tramita === 'apoderado' ? apoderado : representante;
-  const datos = [
-    ['Proyecto', proyecto.folio + ' · ' + proyecto.nombre],
-    ['Lugar y fecha', proyecto.municipio + ' · ' + new Intl.DateTimeFormat('es-MX', { dateStyle: 'long', timeZone: 'America/Hermosillo' }).format(ahora)],
-    ['Titular', titular],
-    [tramita === 'apoderado' ? 'Apoderado' : 'Representante legal', designado],
-    ['Testigos registrados', testigos.join(' · ') || 'Sin captura'],
-  ] as const;
-  let y = 590;
-  for (const [etiqueta, valor] of datos) {
-    const imprimible = [...valor.normalize('NFC')].map((s) => {
-      try { regular.encodeText(s); return s; } catch { return '?'; }
-    }).join('').slice(0, 1500);
-    page.drawText(etiqueta, { x: 42, y, size: 10, font: bold, color: teal });
-    const lineas = imprimible.match(/.{1,82}/gu) ?? [''];
-    const visibles = lineas.slice(0, etiqueta === 'Testigos registrados' ? 9 : 3);
-    page.drawText(visibles.join('\n'), { x: 42, y: y - 17, size: 11, font: regular, color: navy, lineHeight: 14, maxWidth: 523 });
-    y -= 33 + (visibles.length - 1) * 15;
+  const lugar = proyecto.municipio + ', ' + new Intl.DateTimeFormat('es-MX', { dateStyle: 'long', timeZone: 'America/Hermosillo' }).format(ahora);
+  page.drawText(lineas(lugar, bold, 11, 482).slice(0, 2).join('\n'), { x: 65, y: 641, size: 11, font: bold, color: tinta, lineHeight: 15 });
+  page.drawText('A QUIEN CORRESPONDA:', { x: 65, y: 593, size: 11, font: bold, color: tinta });
+  const texto = `En este ejemplo de Carta Poder, ${titular} figura como otorgante y ${designado} como ${tramita === 'apoderado' ? 'persona apoderada' : 'representante legal'}. La representación ilustrada se refiere únicamente a la preparación y presentación de la documentación del proyecto de interconexión identificado con el folio ${proyecto.folio}.`;
+  const parrafos = [texto, 'Los espacios de firma muestran dónde se identificarían las personas participantes en una plantilla autorizada.'];
+  let y = 559;
+  for (const parrafo of parrafos) {
+    const contenido = lineas(parrafo, regular, 11, 482);
+    page.drawText(contenido.join('\n'), { x: 65, y, size: 11, font: regular, color: tinta, lineHeight: 17 });
+    y -= contenido.length * 17 + 12;
   }
-  // Hasta ocho testigos y nombres de 160 caracteres se capturan completos en el snapshot.
-  // Si la lista supera la portada, se continúa en una página de datos, también marcada como demo.
-  if (testigos.join(' · ').length > 738) {
-    const detalle = pdf.addPage([612, 792]);
-    detalle.drawText('DOCUMENTO DE DEMOSTRACIÓN — SIN VALIDEZ LEGAL', { x: 42, y: 742, size: 12, font: bold, color: navy });
-    let linea = 706;
-    for (const [i, testigo] of testigos.entries()) {
-      const contenido = [...testigo].map((s) => { try { regular.encodeText(s); return s; } catch { return '?'; } }).join('');
-      detalle.drawText(`Testigo ${i + 1} · ${contenido}`, { x: 42, y: linea, size: 10, font: regular, color: navy, maxWidth: 528, lineHeight: 14 });
-      linea -= 53;
+  const bloques = [
+    ['OTORGANTE', titular], [tramita === 'apoderado' ? 'APODERADO/A' : 'REPRESENTANTE LEGAL', designado],
+    ['TESTIGO 1', testigos[0] ?? 'Sin captura'], ['TESTIGO 2', testigos[1] ?? 'Sin captura'],
+  ];
+  bloques.forEach(([etiqueta = '', nombre = ''], i) => {
+    const x = i % 2 ? 327 : 65;
+    const altura = i < 2 ? 315 : 189;
+    const ancho = 220;
+    page.drawText(etiqueta, { x: x + (ancho - bold.widthOfTextAtSize(etiqueta, 10)) / 2, y: altura + 34, size: 10, font: bold, color: tinta });
+    page.drawLine({ start: { x, y: altura }, end: { x: x + ancho, y: altura }, color: tinta });
+    if (muestraObservada) {
+      page.drawText(i === 0 ? 'Firma faltante en este ejemplo' : 'Firma ficticia ilustrada', {
+        x: x + 16, y: altura + 10, size: 10, font: regular, color: i === 0 ? rgb(.65, .15, .12) : tenue,
+      });
     }
+    lineas(nombre, regular, 10, ancho).slice(0, 5).forEach((linea, j) => {
+      page.drawText(linea, { x: x + (ancho - regular.widthOfTextAtSize(linea, 10)) / 2, y: altura - 16 - j * 13, size: 10, font: regular, color: tinta });
+    });
+  });
+  if (testigos.length > 2) {
+    const adicional = pdf.addPage([612, 792]);
+    adicional.drawText(aviso, { x: 65, y: 722, size: 11, font: bold, color: tinta });
+    testigos.slice(2).forEach((testigo, i) => {
+      const altura = 660 - i * 95;
+      adicional.drawText('TESTIGO ' + (i + 3), { x: 65, y: altura, size: 10, font: bold, color: tinta });
+      adicional.drawLine({ start: { x: 65, y: altura - 31 }, end: { x: 547, y: altura - 31 }, color: tinta });
+      adicional.drawText(lineas(testigo, regular, 10, 482).join('\n'), { x: 65, y: altura - 47, size: 10, lineHeight: 13, font: regular, color: tinta });
+    });
   }
-  for (const [x, etiqueta] of [[42, 'Titular'], [322, 'Representante o apoderado']] as const) {
-    page.drawLine({ start: { x, y: 132 }, end: { x: x + 248, y: 132 }, color: teal });
-    page.drawText('Espacio demostrativo · ' + etiqueta, { x, y: 115, size: 10, font: regular, color: navy });
-  }
-  page.drawText('Plantilla ' + VERSION_CARTA_DEMO + ' · ' + id, { x: 42, y: 43, size: 9, font: regular, color: teal });
+  page.drawText('KairóVolt · Plantilla ' + VERSION_CARTA_DEMO + ' · ' + id, { x: 65, y: 52, size: 8, font: regular, color: tenue });
   const bytes = Buffer.concat([await pdf.save({ useObjectStreams: false }), Buffer.from('\n%' + MARCA_CARTA_DEMO + '\n')]);
   return { id, fecha, plantilla: VERSION_CARTA_DEMO, snapshot: { proyecto, version }, sha256: createHash('sha256').update(bytes).digest('hex'), bytes };
 }

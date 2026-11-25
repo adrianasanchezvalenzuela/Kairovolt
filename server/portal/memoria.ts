@@ -6,10 +6,10 @@ import type { ParticipantesPortal } from './participantes';
 import { PERMISOS_PORTAL_POR_DEFECTO } from '../../src/application/portal-cliente';
 import { kv2026004Demo } from '../../src/data/kv-2026-004.demo';
 import { demosPortal } from '../../src/data/demos-portal';
-import { catalogoRequisitosBase } from '../../src/data/catalogo-requisitos.mock';
+import { CATALOGO_MEDIA_TENSION_DEMO, TIPOS_MEDIA_TENSION_DEMO } from '../catalogo';
 import { datosIniciales } from '../../src/application/participantes';
 import { generarCodigo, huellaCodigo } from './codigo';
-import type { AccesoPortal, AccesosPortal, AlmacenPortal, FuenteProyectoPortal, NuevaRecepcion, RecepcionesPortal } from './tipos';
+import type { AccesoPortal, AccesosPortal, AlmacenPortal, FuenteProyectoPortal, NuevaRecepcion } from './tipos';
 
 /**
  * Adaptadores EN MEMORIA, solo para el modo DEMO (sin Supabase o con PORTAL_MODO_DEMO). Nada se guarda en disco ni en la nube:
@@ -22,6 +22,32 @@ export const FOLIO_DEMO = kv2026004Demo.folio;
 const enviado = demosPortal[1];
 const listo = demosPortal[2];
 
+export const participantesCasoEnviado: VersionParticipantes = {
+  version: 1,
+  confirmado: true,
+  datos: {
+    ...datosIniciales,
+    tipoTitular: 'fisica',
+    titular: 'Titular ficticio del caso enviado',
+    tramita: 'apoderado',
+    apoderado: 'Apoderada ficticia del caso enviado',
+    testigos: ['Testigo ficticio A', 'Testigo ficticio B'],
+  },
+};
+
+export const participantesCasoListo: VersionParticipantes = {
+  version: 1,
+  confirmado: true,
+  datos: {
+    ...datosIniciales,
+    tipoTitular: 'fisica',
+    titular: 'Titular ficticio del expediente preparado',
+    tramita: 'apoderado',
+    apoderado: 'Apoderada ficticia',
+    testigos: ['Testigo ficticio A', 'Testigo ficticio B'],
+  },
+};
+
 interface Fila extends AccesoPortal { huella: string; revocado: boolean }
 
 export function crearAccesosMemoria(ahora: () => number = Date.now, sembrarDemo = false, incluirEnviado = false): AccesosPortal {
@@ -29,13 +55,20 @@ export function crearAccesosMemoria(ahora: () => number = Date.now, sembrarDemo 
   const vigente = (f: Fila) => !f.revocado && Date.parse(f.expiraEn) > ahora();
   const publico = ({ huella: _h, revocado: _r, ...a }: Fila): AccesoPortal => a;
   const alta = (folio: string, codigo: string, permisos: AccesoPortal['permisos'], dias: number): Fila => {
-    const fila: Fila = { id: randomUUID(), folio, permisos, expiraEn: new Date(ahora() + dias * 86_400_000).toISOString(), creadoEn: new Date(ahora()).toISOString(), ultimoUso: null, huella: huellaCodigo(codigo), revocado: false };
+    const fila: Fila = {
+      id: randomUUID(), folio, permisos,
+      expiraEn: new Date(ahora() + dias * 86_400_000).toISOString(),
+      creadoEn: new Date(ahora()).toISOString(), ultimoUso: null,
+      huella: huellaCodigo(codigo), revocado: false,
+    };
     filas.set(fila.id, fila);
     return fila;
   };
   if (sembrarDemo) alta(FOLIO_DEMO, CODIGO_DEMO, { ...PERMISOS_PORTAL_POR_DEFECTO, editar_participantes: true }, 3650);
   if (sembrarDemo && incluirEnviado) {
-    for (const caso of [enviado, listo]) alta(caso.folio, caso.codigo, { ...PERMISOS_PORTAL_POR_DEFECTO, editar_participantes: true }, 3650);
+    for (const caso of [enviado, listo]) {
+      alta(caso.folio, caso.codigo, { ...PERMISOS_PORTAL_POR_DEFECTO, editar_participantes: true }, 3650);
+    }
   }
 
   return {
@@ -67,13 +100,8 @@ export function crearAccesosMemoria(ahora: () => number = Date.now, sembrarDemo 
 
 export function crearParticipantesDemo(incluirEnviado = false): ParticipantesPortal {
   const versiones = new Map<string, VersionParticipantes>();
-  if (incluirEnviado) versiones.set(enviado.folio, {
-    version: 1, confirmado: true, datos: { ...datosIniciales, tipoTitular: 'fisica', titular: 'Titular ficticio del caso enviado', tramita: 'titular' },
-  });
-  if (incluirEnviado) versiones.set(listo.folio, {
-    version: 1, confirmado: true, datos: { ...datosIniciales, tipoTitular: 'fisica', titular: 'Titular ficticio del expediente listo',
-      tramita: 'apoderado', apoderado: 'Apoderada ficticia', testigos: ['Testigo ficticio A', 'Testigo ficticio B'] },
-  });
+  if (incluirEnviado) versiones.set(enviado.folio, participantesCasoEnviado);
+  if (incluirEnviado) versiones.set(listo.folio, participantesCasoListo);
   return {
     async consultar(acceso) { return versiones.get(acceso.folio) ?? null; },
     async guardar(acceso, entrada) {
@@ -86,29 +114,103 @@ export function crearParticipantesDemo(incluirEnviado = false): ParticipantesPor
   };
 }
 
-export function crearRecepcionesMemoria(ahora: () => number = Date.now, incluirEnviado = false): RecepcionesPortal {
+export function crearRecepcionesMemoria(ahora: () => number = Date.now, incluirEnviado = false) {
   const lista: (Recepcion & { folio: string })[] = [];
-  if (incluirEnviado) lista.push(
-    { folio: enviado.folio, recibo: 'REC-DE0001', documentoId: 'recibo_cfe', documento: 'Recibo CFE', archivo: 'recibo-ficticio.pdf', fecha: new Date(ahora() - 172_800_000).toISOString(), estado: 'aceptado', motivo: null },
-    { folio: enviado.folio, recibo: 'REC-DE0002', documentoId: 'identificacion_oficial', documento: 'Identificación oficial', archivo: 'identificacion-ficticia.pdf', fecha: new Date(ahora() - 86_400_000).toISOString(), estado: 'en_revision', motivo: null },
-    { folio: enviado.folio, recibo: 'REC-DE0003', documentoId: 'constancia_situacion_fiscal', documento: 'Constancia fiscal', archivo: 'constancia-ficticia.pdf', fecha: new Date(ahora() - 7_200_000).toISOString(), estado: 'recibido', motivo: null },
-    { folio: enviado.folio, recibo: 'REC-DE0004', documentoId: 'carta_poder', documento: 'Carta poder', archivo: 'carta-ficticia.pdf', fecha: new Date(ahora() - 3_600_000).toISOString(), estado: 'recibido', motivo: null },
-  );
-  if (incluirEnviado) lista.push(...catalogoRequisitosBase.filter((r) => r.aportaCliente && r.obligatorio && !r.condicion)
-    .map((r, i): Recepcion & { folio: string } => ({
-      folio: listo.folio, recibo: 'REC-' + (0xea0001 + i).toString(16).toUpperCase(),
-      documentoId: r.tipo, documento: r.nombre, archivo: r.tipo + '-demo.pdf',
-      fecha: new Date(ahora() - 86_400_000).toISOString(), estado: 'aceptado', motivo: null,
-    })));
+  if (incluirEnviado) {
+    // Demo 2 (KV-2026-005): estados documentales diversos sobre los 11 documentos de media tensión.
+    lista.push(
+      {
+        folio: enviado.folio, recibo: 'REC-DE0001', documentoId: 'recibo_cfe',
+        documento: 'Recibo CFE del último corte, sin adeudos', archivo: 'recibo-cfe-ficticio.pdf',
+        fecha: new Date(ahora() - 172_800_000).toISOString(), estado: 'aceptado', motivo: null, mime: 'application/pdf',
+        revisadoEn: new Date(ahora() - 86_400_000).toISOString(), revisorPublico: 'Equipo IDC · demo',
+      },
+      {
+        folio: enviado.folio, recibo: 'REC-DE0002', documentoId: 'identificacion_oficial',
+        documento: 'Identificación oficial vigente del propietario o representante', archivo: 'identificacion-ficticia.pdf',
+        fecha: new Date(ahora() - 86_400_000).toISOString(), estado: 'en_revision', motivo: null, mime: 'application/pdf',
+      },
+      {
+        folio: enviado.folio, recibo: 'REC-DE0004', documentoId: 'carta_poder',
+        documento: 'Carta Poder con identificaciones correspondientes', archivo: 'carta-poder-ficticia.pdf',
+        fecha: new Date(ahora() - 3_600_000).toISOString(), estado: 'rechazado', causa: 'falta_firma',
+        mime: 'application/pdf', revisadoEn: new Date(ahora() - 1_800_000).toISOString(), revisorPublico: 'Equipo IDC · demo',
+        motivo: 'Revisamos tu Carta Poder y detectamos que falta la firma del titular. Las demás firmas están completas. Por favor, agrega la firma faltante y vuelve a enviarnos el documento.',
+      },
+      {
+        folio: enviado.folio, recibo: 'REC-DE0005', documentoId: 'diagrama_unifilar',
+        documento: 'Diagrama unifilar', archivo: 'diagrama-unifilar-especialista.pdf',
+        fecha: new Date(ahora() - 129_600_000).toISOString(), estado: 'prevalidado', motivo: null, mime: 'application/pdf',
+        revisadoEn: new Date(ahora() - 43_200_000).toISOString(), revisorPublico: 'Equipo IDC · demo',
+      },
+      {
+        folio: enviado.folio, recibo: 'REC-DE0006', documentoId: 'ficha_tecnica',
+        documento: 'Fichas técnicas de paneles e inversor', archivo: 'fichas-tecnicas-equipos.pdf',
+        fecha: new Date(ahora() - 21_600_000).toISOString(), estado: 'en_revision', motivo: null, mime: 'application/pdf',
+      },
+    );
+
+    // Demo 3 (KV-2026-006): los mismos 11 documentos de media tensión con revisión digital favorable (prevalidado),
+    // SIN marcarlos como entregados físicamente porque la visita aún no ocurre.
+    TIPOS_MEDIA_TENSION_DEMO.forEach((tipo, i) => {
+      const meta = CATALOGO_MEDIA_TENSION_DEMO[tipo]!;
+      lista.push({
+        folio: listo.folio,
+        recibo: 'REC-' + (0xea0001 + i).toString(16).toUpperCase(),
+        documentoId: tipo,
+        documento: meta.nombre,
+        archivo: `${tipo}-demo.pdf`,
+        fecha: new Date(ahora() - (172_800_000 - i * 3_600_000)).toISOString(),
+        estado: 'prevalidado',
+        motivo: null,
+        mime: 'application/pdf',
+        revisadoEn: new Date(ahora() - (86_400_000 - i * 1_800_000)).toISOString(),
+        revisorPublico: 'Equipo IDC · demo',
+      });
+    });
+  }
   return {
-    async listar(folio) {
-      return lista.filter((r) => r.folio === folio).map(({ folio: _f, ...r }) => r);
+    async listar(folio: string) {
+      return lista
+        .filter((r) => r.folio === folio)
+        .reverse()
+        .sort((a, b) => b.fecha.localeCompare(a.fecha))
+        .map(({ folio: _f, ...r }) => r);
     },
     async registrar(r: NuevaRecepcion) {
-      const recepcion = { folio: r.folio, recibo: `REC-${randomUUID().slice(0, 6).toUpperCase()}`, documentoId: r.documentoId, documento: r.documento, archivo: r.archivo, fecha: new Date(ahora()).toISOString(), estado: 'recibido' as const, motivo: null };
+      const esMultiple = r.documentoId === 'evidencia_fotografica';
+      for (const anterior of lista) {
+        if (anterior.folio === r.folio && anterior.documentoId === r.documentoId) {
+          if (!esMultiple || anterior.estado === 'rechazado') {
+            anterior.sustituida = true;
+          }
+        }
+      }
+      const recepcion = {
+        folio: r.folio,
+        recibo: `REC-${randomUUID().slice(0, 6).toUpperCase()}`,
+        documentoId: r.documentoId,
+        documento: r.documento,
+        archivo: r.archivo,
+        mime: r.mime,
+        fecha: new Date(ahora()).toISOString(),
+        estado: 'recibido' as const,
+        motivo: null,
+      };
       lista.push(recepcion);
       const { folio: _f, ...publica } = recepcion;
       return publica;
+    },
+    async simular(folio: string, recibo: string, estado: 'rechazado' | 'prevalidado', motivo: string) {
+      const r = lista.find((item) => item.folio === folio && item.recibo === recibo && !item.sustituida);
+      if (folio !== enviado.folio || !r || !['en_revision', 'recibido'].includes(r.estado)) return false;
+      Object.assign(r, {
+        estado,
+        motivo: motivo || null,
+        revisadoEn: new Date(ahora()).toISOString(),
+        revisorPublico: 'Equipo IDC · demo',
+      });
+      return true;
     },
   };
 }
@@ -120,9 +222,11 @@ export const fuenteDemo: FuenteProyectoPortal = {
   modo: 'demo',
   async obtener(folio) {
     if (folio === listo.folio) return {
-      ...kv2026004Demo, id: listo.folio, folio: listo.folio,
-      nombre: 'Interconexión FV · listo para entrega física',
-      documentos: kv2026004Demo.documentos.filter((d) => d.tipo !== 'recibo_cfe'),
+      ...kv2026004Demo,
+      id: listo.folio,
+      folio: listo.folio,
+      nombre: 'Interconexión FV 40 kW · documentación preparada para entrega física',
+      documentos: [],
     };
     return folio === FOLIO_DEMO ? kv2026004Demo : null;
   },
@@ -132,9 +236,11 @@ export const fuenteDemosLocales: FuenteProyectoPortal = {
   ...fuenteDemo,
   async obtener(folio) {
     if (folio === enviado.folio) return {
-      ...kv2026004Demo, id: enviado.folio, folio: enviado.folio,
-      nombre: 'Interconexión FV · expediente enviado',
-      documentos: kv2026004Demo.documentos.filter((d) => d.tipo !== 'recibo_cfe'),
+      ...kv2026004Demo,
+      id: enviado.folio,
+      folio: enviado.folio,
+      nombre: 'Interconexión FV 40 kW · preparación y revisión documental',
+      documentos: [],
     };
     return fuenteDemo.obtener(folio);
   },

@@ -321,3 +321,192 @@
 .kvp .kv-dialogo--derecha { box-sizing: border-box; max-width: 100%; }
 .kvp .kv-dialogo__cuerpo { overflow-x: hidden; }
 .kv-cliente-detalle > * { min-width: 0; overflow-wrap: anywhere; }
+
+.kv-doc-grupo { margin-top: 23px; }
+.kv-doc-grupo > h3 { font-size: 20px; margin-bottom: 10px; }
+.kv-doc-tarjetas { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 0; list-style: none; }
+.kv-doc-tarjetas > li { display: grid; grid-template-columns: 43px minmax(0,1fr); gap: 9px 12px; padding: 15px; border-radius: 15px; background: var(--pc-fondo); }
+.kv-doc-tarjetas > li[data-estado='rechazado'] { background: var(--pc-aviso); }
+.kv-doc-tarjetas > li:is([data-estado='en_revision'],[data-tecnico='true']) { background: var(--pc-hielo); }
+.kv-doc-tarjetas > li:is([data-estado='aceptado'],[data-estado='prevalidado']) { background: var(--pc-salvia); }
+.kv-doc-tarjetas .kv-cliente-docs__acciones { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; }
+.kv-doc-guia { display: grid; gap: 13px; }
+.kv-doc-guia__portada { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-radius: 13px; background: var(--pc-menta); padding: 13px 15px; }
+.kv-doc-guia__portada h2 { margin-top: 7px; font-size: 21px; }
+.kv-doc-guia__portada svg { width: min(30%,110px); }
+.kv-doc-bloque { display: grid; gap: 9px; border-radius: 13px; padding: 12px; background: var(--pc-fondo); }
+.kv-doc-bloque[open] > :not(summary) { margin-top: 8px; }
+.kv-doc-bloque summary { cursor: pointer; font-weight: 700; }
+.kv-doc-bloque--entrega { background: var(--pc-aviso); }
+.kv-doc-archivo { background: var(--pc-marfil); border-radius: 12px; padding: 8px; }
+.kv-doc-archivo iframe,.kv-doc-archivo img { width: 100%; min-height: 290px; max-height: 430px; border: 0; object-fit: contain; }
+.kv-doc-archivo__acciones { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 9px; }
+.kv-doc-archivo__acciones a { display: inline-flex; gap: 5px; align-items: center; }
+.kv-doc-guia :is(textarea, select) { display: block; width: 100%; max-width: 540px; margin-top: 5px; padding: 8px; border: 1px solid var(--pc-borde); border-radius: 9px; }
+.kv-doc-correo { margin: 8px 0; padding: 10px; border: 1px solid var(--pc-borde); border-radius: 12px; }
+.kv-doc-correo dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; margin: 10px 0; overflow-wrap: anywhere; }
+.kv-doc-correo__contenido { background: var(--pc-fondo); border-radius: 12px; padding: 13px; }
+.kv-doc-correo__contenido header { padding: 8px 12px; background: var(--pc-navy); color: #fff; border-radius: 6px; font-weight: 700; }
+.kv-doc-correo__contenido :is(h3,p,a) { margin-top: 8px; }
+@media(max-width: 850px) { .kv-doc-tarjetas { grid-template-columns: 1fr; } }
+@media(max-width: 680px) {
+  .kvp:has(.kv-doc-guia) .kv-dialogo--derecha { width: 100%; height: 100dvh; max-height: 100dvh; border-left: 0; }
+  .kv-doc-tarjetas .kv-cliente-docs__acciones { justify-content: flex-start; }
+}
+
+
+/* --- Extensión Solar Editorial Premium: 3 demos, guías visuales y Mi próxima visita a IDC --- */
+.kvp { overflow-x: clip; }
+.kv-cliente-galeria__casos--tres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.kv-cliente-galeria__casos--tres section:nth-child(3) { background: var(--pc-hielo); }
+.kv-cliente-galeria__icono { display: grid; place-items: center; width: 44px; height: 44px; margin: 8px 0 4px; border-radius: 12px; background: var(--pc-marfil); color: var(--pc-teal-oscuro); }
+
+.kvp-subir__controles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.kv-doc-tarjetas > li[data-estado='preparado'] { background: var(--pc-menta); }
+.kv-doc-grupo--condicional { margin-top: 28px; padding-top: 16px; border-top: 1px dashed var(--pc-borde); }
+.kv-doc-grupo--condicional > p { margin: 4px 0 12px; }
+
+.kv-guia-visual { margin: 4px 0; padding: 10px; border-radius: 13px; background: var(--pc-marfil); border: 1px solid var(--pc-borde); }
+.kv-guia-visual svg { display: block; width: 100%; height: auto; }
+.kv-guia-visual figcaption { margin-top: 8px; color: var(--pc-tinta-suave); font-size: 12px; }
+.kv-guia-fotos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 4px 0; }
+.kv-guia-fotos figure { margin: 0; padding: 9px; border-radius: 12px; background: var(--pc-marfil); border: 1px solid var(--pc-borde); display: grid; gap: 6px; }
+.kv-guia-fotos svg { width: 100%; height: auto; display: block; }
+.kv-guia-fotos figcaption { display: grid; gap: 2px; font-size: 12px; color: var(--pc-tinta-suave); }
+.kv-guia-fotos figcaption strong { color: var(--pc-navy); font-size: 13px; }
+
+.kv-visita-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 16px 20px; border-radius: 16px; background: var(--pc-arena); margin-bottom: 16px; }
+.kv-visita-banner h2 { font-size: 21px; margin: 4px 0; letter-spacing: -.025em; }
+.kv-visita-banner p { color: var(--pc-navy); max-width: 68ch; font-size: 14px; }
+
+.kv-visita { display: grid; gap: 18px; min-width: 0; }
+.kv-visita-hero { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: clamp(20px, 3vw, 34px); border-radius: 20px; background: var(--pc-navy); color: #fff; overflow: hidden; }
+.kv-visita-hero__texto { max-width: 640px; min-width: 0; }
+.kv-visita-eyebrow { display: inline-block; font: 700 11px var(--kv-mono); letter-spacing: .12em; color: var(--pc-ambar); margin-bottom: 8px; }
+.kv-visita-hero h1 { font-size: clamp(28px, 3.6vw, 44px); letter-spacing: -.045em; }
+.kv-visita-hero p { color: #d0e1e8; margin-top: 8px; font-size: 15px; }
+.kv-visita-hero__meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.kv-visita-hero__ilustracion { width: min(220px, 34%); flex: none; height: auto; }
+
+.kv-visita-pasos ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; list-style: none; padding: 0; }
+.kv-visita-pasos button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: 1px solid var(--pc-borde); border-radius: 14px; background: var(--pc-marfil); color: var(--pc-tinta-suave); font-weight: 650; text-align: left; cursor: pointer; }
+.kv-visita-pasos button > span { display: grid; place-items: center; width: 26px; height: 26px; flex: none; border-radius: 50%; background: var(--pc-hielo); color: var(--pc-navy); font: 700 12px var(--kv-mono); }
+.kv-visita-pasos button[aria-current='step'] { border-color: var(--pc-teal); background: var(--pc-salvia); color: var(--pc-navy); }
+.kv-visita-pasos button[aria-current='step'] > span { background: var(--pc-teal); color: #fff; }
+.kv-visita-pasos button[data-completo='true'] > span { background: var(--pc-teal); color: #fff; }
+.kv-visita-pasos button:disabled { opacity: .55; cursor: not-allowed; }
+
+.kv-visita-bloqueo { display: grid; gap: 14px; }
+.kv-visita-bloqueo__encabezado { display: flex; align-items: flex-start; gap: 12px; color: var(--pc-navy); }
+.kv-visita-bloqueo__encabezado svg { flex: none; color: #9d382d; margin-top: 3px; }
+.kv-visita-bloqueo__encabezado h2 { font-size: 20px; margin-bottom: 4px; }
+.kv-visita-bloqueo__lista { list-style: none; padding: 0; display: grid; gap: 8px; }
+.kv-visita-bloqueo__lista li { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 11px; background: var(--pc-fondo); }
+
+.kv-visita-checklist { display: grid; gap: 14px; padding: 20px; border-radius: 18px; background: var(--pc-marfil); }
+.kv-visita-checklist__botones { display: flex; flex-wrap: wrap; gap: 8px; }
+.kv-visita-progreso { display: grid; gap: 6px; }
+.kv-visita-progreso small { color: var(--pc-tinta-suave); font-size: 12px; }
+.kv-visita-grupo { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--pc-borde); }
+.kv-visita-grupo h3 { font-size: 17px; }
+.kv-visita-grupo--por-confirmar { background: var(--pc-aviso); padding: 14px; border-radius: 14px; border-top: 0; }
+.kv-visita-grupo ul { list-style: none; padding: 0; display: grid; gap: 8px; }
+.kv-visita-grupo li { padding: 12px; border-radius: 13px; background: var(--pc-fondo); transition: background .15s ease; }
+.kv-visita-grupo--por-confirmar li { background: var(--pc-marfil); }
+.kv-visita-grupo li[data-preparado='true'] { background: var(--pc-salvia); }
+.kv-visita-grupo label { display: flex; align-items: flex-start; gap: 11px; cursor: pointer; }
+.kv-visita-grupo input[type='checkbox'] { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: var(--pc-teal); }
+.kv-visita-grupo li p { color: var(--pc-tinta-suave); font-size: 13px; margin-top: 3px; }
+.kv-visita-etiquetas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.kv-visita-item-estatico { display: flex; align-items: flex-start; gap: 10px; color: var(--pc-teal-oscuro); }
+.kv-visita-item-estatico svg { flex: none; margin-top: 2px; }
+.kv-visita-pie-paso { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 12px; border-top: 1px solid var(--pc-borde); }
+
+.kv-visita-dos-col { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(270px, 1fr); gap: 16px; align-items: start; }
+.kv-visita-tipos { display: grid; gap: 6px; margin-bottom: 14px; }
+.kv-visita-tipos h2 { display: flex; align-items: center; gap: 8px; font-size: 20px; }
+
+.kv-calendario { display: grid; gap: 12px; min-width: 0; }
+.kv-calendario__cabecera { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.kv-calendario__cabecera h3 { font-size: 18px; letter-spacing: -.02em; }
+.kv-calendario__leyenda { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--pc-tinta-suave); }
+.kv-calendario__leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+.kv-calendario__leyenda i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.kv-calendario__leyenda [data-marca='disponible'] { background: var(--pc-salvia); border: 1px solid var(--pc-teal); }
+.kv-calendario__leyenda [data-marca='seleccionado'] { background: var(--pc-teal); }
+.kv-calendario__leyenda [data-marca='nodisponible'] { background: var(--pc-hielo); }
+.kv-calendario__dias-semana, .kv-calendario__rejilla { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.kv-calendario__dias-semana span { text-align: center; font-size: 12px; font-weight: 700; color: var(--pc-tinta-suave); padding-bottom: 4px; }
+.kv-calendario__dia { display: grid; place-items: center; min-height: 46px; padding: 4px 2px; border: 1px solid transparent; border-radius: 12px; background: var(--pc-fondo); color: var(--pc-navy); cursor: pointer; }
+.kv-calendario__dia span { font-weight: 700; font-size: 14px; line-height: 1; }
+.kv-calendario__dia small { font: 600 10px var(--kv-mono); color: var(--pc-teal-oscuro); margin-top: 2px; }
+.kv-calendario__dia[data-disponible='true'] { background: var(--pc-menta); border-color: #c2ddd9; }
+.kv-calendario__dia[data-disponible='true']:hover { background: var(--pc-salvia); }
+.kv-calendario__dia[data-seleccionado='true'] { background: var(--pc-teal); border-color: var(--pc-teal-oscuro); color: #fff; }
+.kv-calendario__dia[data-seleccionado='true'] small { color: #e8f5f3; }
+.kv-calendario__dia:disabled { background: var(--pc-fondo); color: #9db0bc; cursor: not-allowed; opacity: .65; }
+
+.kv-horarios { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--pc-borde); }
+.kv-horarios h4 { display: flex; align-items: center; gap: 6px; font-size: 16px; margin: 0; }
+.kv-horarios__lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.kv-horario-btn { display: grid; gap: 2px; justify-items: center; padding: 10px 8px; border-radius: 12px; border: 1px solid #c4d7db; background: var(--pc-fondo); color: var(--pc-navy); cursor: pointer; }
+.kv-horario-btn strong { font: 700 15px var(--kv-mono); }
+.kv-horario-btn small { font-size: 11px; color: var(--pc-tinta-suave); }
+.kv-horario-btn:hover:not(:disabled) { background: var(--pc-menta); border-color: var(--pc-teal); }
+.kv-horario-btn[data-seleccionado='true'] { background: var(--pc-teal); border-color: var(--pc-teal-oscuro); color: #fff; }
+.kv-horario-btn[data-seleccionado='true'] small { color: #e8f5f3; }
+.kv-horario-btn[data-ocupado='true'] { background: #f2ede3; color: #8c9aa4; border-style: dashed; }
+.kv-horario-btn:disabled { cursor: not-allowed; opacity: .72; }
+
+.kv-visita-resumen-solar { display: grid; gap: 10px; padding: 20px; border-radius: 18px; background: var(--pc-arena); color: var(--pc-navy); }
+.kv-visita-resumen-solar h3 { font-size: 21px; letter-spacing: -.03em; }
+.kv-visita-resumen-solar p { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; }
+.kv-visita-resumen-solar p svg { flex: none; margin-top: 3px; color: var(--pc-teal-oscuro); }
+.kv-visita-resumen-dl { display: grid; grid-template-columns: minmax(95px, auto) minmax(0, 1fr); gap: 8px 14px; margin: 4px 0; }
+.kv-visita-resumen-dl dt { font-weight: 700; font-size: 13px; color: var(--pc-navy); }
+.kv-visita-resumen-dl dd { color: var(--pc-tinta-suave); font-size: 14px; }
+.kv-visita-resumen-solar .kv-visita-resumen-dl dd { color: var(--pc-navy); }
+.kv-visita-resumen-lista { padding-left: 18px; display: grid; gap: 5px; font-size: 14px; }
+
+.kv-visita-gestion { display: grid; gap: 16px; }
+.kv-visita-detalle-cita, .kv-visita-confirmacion { display: grid; gap: 14px; }
+.kv-visita-propuesta { display: grid; gap: 8px; padding: 15px; border-radius: 14px; background: var(--pc-arena); }
+.kv-visita-propuesta h3 { display: flex; align-items: center; gap: 7px; font-size: 16px; }
+.kv-visita-acciones { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+.kv-visita-subpanel { display: grid; gap: 12px; padding: 14px; border-radius: 14px; background: var(--pc-fondo); border: 1px solid var(--pc-borde); }
+.kv-visita-campo { display: grid; gap: 5px; font-size: 14px; font-weight: 650; }
+.kv-visita-campo textarea, .kv-visita-campo input { width: 100%; padding: 9px 11px; border: 1px solid #b8c9d2; border-radius: 10px; background: var(--pc-marfil); color: var(--pc-navy); box-sizing: border-box; }
+.kv-visita-campo textarea { min-height: 78px; resize: vertical; }
+.kv-visita-lateral { display: grid; gap: 14px; }
+.kv-visita-historial h3 { display: flex; align-items: center; gap: 7px; font-size: 16px; margin-bottom: 10px; }
+.kv-visita-historial ol { list-style: none; padding: 0; display: grid; gap: 10px; }
+.kv-visita-historial li { padding-left: 12px; border-left: 2px solid var(--pc-salvia); display: grid; gap: 2px; }
+.kv-visita-historial small { color: var(--pc-teal-oscuro); font-size: 12px; font-weight: 650; }
+.kv-visita-historial p { color: var(--pc-tinta-suave); font-size: 13px; }
+.kv-visita-simulador summary { cursor: pointer; font-weight: 700; color: var(--pc-teal-oscuro); }
+.kv-visita-simulador__campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+.kv-cliente-cronologia [data-tipo='cita'] .kv-cliente-evento-icono { background: var(--pc-arena); color: var(--pc-navy); }
+.kv-cliente-notificaciones [data-tipo='cita'] .kv-cliente-evento-icono { background: var(--pc-salvia); color: var(--pc-teal-oscuro); }
+
+@media (max-width: 960px) {
+  .kv-cliente-galeria__casos--tres { grid-template-columns: 1fr; }
+  .kv-visita-dos-col { grid-template-columns: minmax(0, 1fr); }
+  .kv-visita-hero { flex-direction: column; align-items: flex-start; }
+  .kv-visita-hero__ilustracion { width: 170px; align-self: flex-end; }
+}
+@media (max-width: 680px) {
+  .kv-visita-pasos ol { grid-template-columns: 1fr; }
+  .kv-visita-checklist { padding: 14px; }
+  .kv-calendario__dias-semana, .kv-calendario__rejilla { gap: 4px; }
+  .kv-calendario__dia { min-height: 42px; border-radius: 10px; }
+  .kv-horarios__lista { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kv-guia-fotos { grid-template-columns: 1fr; }
+  .kv-visita-simulador__campos { grid-template-columns: 1fr; }
+  .kv-visita-resumen-dl { grid-template-columns: 1fr; gap: 3px; }
+  .kv-visita-resumen-dl dd { margin-bottom: 8px; }
+}
+@media print {
+  .kv-cliente-sidebar, .kv-cliente-top, .kv-cliente-nota, .kv-cliente-legal,
+  .kv-visita-pasos, .kv-visita-checklist__botones, .kv-visita-pie-paso, .kv-visita-simulador { display: none !important; }
+  .kvp, .kv-visita-checklist { background: #fff !important; padding: 0 !important; }
+}

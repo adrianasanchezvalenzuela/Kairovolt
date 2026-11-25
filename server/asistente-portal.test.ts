@@ -8,7 +8,7 @@ import { PDFDocument } from 'pdf-lib';
 const inicial = () => crearApp({ port: 0, zoho: null, supabase: null, adminToken: 'test' }, fetch, Date.now, true);
 const base = '/api/demo/portal';
 const csrf = { 'x-requested-with': 'kairovolt' };
-async function entrar(app: ReturnType<typeof inicial>, indice: 0 | 2) {
+async function entrar(app: ReturnType<typeof inicial>, indice: 0 | 1 | 2) {
   const { folio, codigo } = demosPortal[indice];
   const r = await app.request(base + '/acceso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ folio, codigo }) });
   expect(r.status).toBe(200);
@@ -16,6 +16,35 @@ async function entrar(app: ReturnType<typeof inicial>, indice: 0 | 2) {
 }
 
 describe('asistente documental', () => {
+  it('resuelve y previsualiza una corrección en la demo sin admitir acceso cruzado ni heredar aprobaciones', async () => {
+    const app = inicial();
+    const a = await entrar(app, 0);
+    const b = await entrar(app, 1);
+    const vista = async () => (await app.request(base + '/vista', { headers: b })).json() as Promise<{
+      recepciones: { recibo: string; documentoId: string; estado: string; sustituida?: boolean }[];
+      notificaciones: { documentoId?: string; titulo: string }[];
+    }>;
+    expect((await app.request(base + '/archivos/REC-DE0001', { headers: a })).status).toBe(404);
+    const original = await app.request(base + '/archivos/REC-DE0004', { headers: b });
+    expect(original.headers.get('content-type')).toBe('application/pdf');
+    expect((await vista()).notificaciones.filter((n) => n.documentoId === 'carta_poder')).toHaveLength(1);
+    const datos = new FormData();
+    datos.set('archivo', new File([await original.arrayBuffer()], 'prueba-ficticia.pdf', { type: 'application/pdf' }));
+    expect((await app.request(base + '/documentos/carta_poder', { method: 'POST', headers: { ...b, ...csrf }, body: datos })).status).toBe(201);
+    const v = await vista();
+    const nueva = v.recepciones.find((r) => r.documentoId === 'carta_poder' && !r.sustituida)!;
+    expect(nueva.estado).toBe('recibido');
+    expect(v.recepciones.find((r) => r.recibo === 'REC-DE0004')?.sustituida).toBe(true);
+    const decidir = (headers: HeadersInit, estado: string, comentario = '') => app.request(base + '/simular-revision/' + nueva.recibo, {
+      method: 'POST', headers: { ...headers, ...csrf, 'Content-Type': 'application/json' }, body: JSON.stringify({ estado, comentario }),
+    });
+    expect((await decidir(a, 'prevalidado')).status).toBe(409);
+    expect((await decidir(b, 'rechazado')).status).toBe(422);
+    expect((await decidir(b, 'prevalidado')).status).toBe(200);
+    expect((await vista()).recepciones.find((r) => r.recibo === nueva.recibo)?.estado).toBe('prevalidado');
+    expect((await app.request(base + '/archivos/' + nueva.recibo, { headers: b })).status).toBe(200);
+  });
+
   it('guarda preparación sin generar recepción, impide marcar sin comprobar y aísla por folio', async () => {
     const app = inicial();
     const a = await entrar(app, 0);

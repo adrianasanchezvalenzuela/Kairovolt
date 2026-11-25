@@ -5,7 +5,7 @@ import type { Proyecto } from '../domain/proyecto/proyecto';
 import { calcularAvance, REGLAS_AVANCE } from '../domain/portal/avance';
 import { ESTADO_CLIENTE, ETAPA_CLIENTE, HITO_PUBLICO } from '../domain/portal/textos';
 import { evaluarVigencias } from '../domain/vigencias/vigencias';
-import type { GuiaPreparacion, RevisionDigital } from '../domain/checklist/preparacion';
+import type { CategoriaPortal, EmisorDocumento, GuiaPreparacion, RequiereEntregaFisica, RevisionDigital } from '../domain/checklist/preparacion';
 
 /**
  * PROYECCIÓN PÚBLICA del portal del cliente. Es lo ÚNICO que sale del servidor hacia el cliente.
@@ -34,6 +34,10 @@ export interface GuiaDocumentoCliente {
   generacionAutomatica?: boolean;
   guiaPreparacion?: GuiaPreparacion;
   revisionDigital?: RevisionDigital;
+  categoriaPortal?: CategoriaPortal;
+  emisorDocumento?: EmisorDocumento;
+  permiteMultiples?: boolean;
+  requiereEntregaFisica?: RequiereEntregaFisica;
   id: string;
   nombre: string;
   descripcion: string | null;
@@ -64,11 +68,25 @@ export interface Recepcion {
   motivo: string | null;
   causa?: string | null;
   sustituida?: boolean;
+  revisadoEn?: string | null;
+  revisorPublico?: string;
+  mime?: string;
 }
 
 export interface Notificacion {
+  documentoId?: string;
+  citaId?: string;
+  eventoTipo?: string;
+  citaResumen?: {
+    referencia: string;
+    fecha: string;
+    horaInicio: string;
+    horaFin: string;
+    ubicacion: string | null;
+    tipoVisita: string;
+  };
   id: string;
-  tipo: 'recepcion' | 'accion' | 'avance';
+  tipo: 'recepcion' | 'accion' | 'avance' | 'cita';
   titulo: string;
   detalle: string | null;
   fecha: string;
@@ -93,7 +111,7 @@ export interface VistaPortal {
   /** null = el acceso no incluye ver documentos. */
   documentos: DocumentoSolicitado[] | null;
   guiaDocumental: GuiaDocumentoCliente[] | null;
-  documentosTecnicos?: { id: string; nombre: string; responsable: 'idc' | 'tercero'; enExpediente: boolean }[];
+  documentosTecnicos?: { id: string; nombre: string; responsable: 'idc' | 'tercero'; enExpediente: boolean; orientacion?: string }[];
   recepciones: Recepcion[];
   notificaciones: Notificacion[];
   historial: EventoPublico[];
@@ -157,12 +175,18 @@ export function construirVistaPortal({ proyecto: p, catalogo, hoy, recepciones, 
       else estado = 'recibido';
     } else estado = aplicabilidad === 'no_aplica' ? 'no_aplica' : 'pendiente';
     const condicionActiva = !!req.condicion || !!req.condicionesAplicacion?.length;
+    const permiteMultiples = req.permiteMultiplesArchivos === true || req.guiaPreparacion?.permiteMultiples === true;
+    const puedeSubirPorEstado = PUEDE_SUBIR.includes(estado) || (permiteMultiples && (estado === 'en_revision' || estado === 'recibido'));
     return { id: req.tipo, nombre: req.nombre, etapa: req.compuerta, estado, detalle,
-      puedeSubir: permisos.subir_documentos && req.revisionDigital !== 'no_disponible' && (!condicionActiva || aplicabilidad === 'aplica') && PUEDE_SUBIR.includes(estado),
+      puedeSubir: permisos.subir_documentos && req.revisionDigital !== 'no_disponible' && (!condicionActiva || aplicabilidad === 'aplica') && puedeSubirPorEstado,
       vigencia: doc?.fechaVigencia ?? null };
   });
   const guiaDocumental: GuiaDocumentoCliente[] = catalogo.filter((r) => r.activo !== false && r.aportaCliente).map((r) => ({
     guiaPreparacion: r.guiaPreparacion, revisionDigital: r.revisionDigital, generacionAutomatica: r.generacionAutomatica,
+    ...(r.categoriaPortal && { categoriaPortal: r.categoriaPortal }),
+    ...(r.emisorDocumento && { emisorDocumento: r.emisorDocumento }),
+    ...(r.permiteMultiplesArchivos && { permiteMultiples: true }),
+    ...(r.requiereEntregaFisica && { requiereEntregaFisica: r.requiereEntregaFisica }),
     id: r.tipo, nombre: r.nombre, descripcion: r.descripcion ?? null, etapa: r.compuerta, condicion: r.condicion ?? null,
     canal: r.canal, requiereVigencia: r.requiereVigencia === true, quienAporta: r.quienAporta ?? 'cliente',
     instrucciones: r.instruccionesCliente ?? null, camposEsperados: r.camposEsperados ?? [], ejemplosAutorizados: r.ejemplosAutorizados ?? [],
@@ -190,10 +214,10 @@ export function construirVistaPortal({ proyecto: p, catalogo, hoy, recepciones, 
 
   // ---- Notificaciones (derivadas; nunca texto libre interno) ----
   const notificaciones: Notificacion[] = [];
-  for (const r of recepciones) {
+  for (const r of permisos.ver_documentos_autorizados ? recepciones.filter((r) => !r.sustituida) : []) {
     notificaciones.push(r.estado === 'rechazado'
-      ? { id: `n:rechazo:${r.recibo}`, tipo: 'accion', titulo: `Necesitamos que vuelvas a enviar «${r.documento}»`, detalle: r.motivo, fecha: r.fecha }
-      : { id: `n:recepcion:${r.recibo}`, tipo: 'recepcion', titulo: r.estado === 'aceptado' ? `Validamos «${r.documento}» en el expediente` :
+      ? { id: `n:rechazo:${r.recibo}`, documentoId: r.documentoId, tipo: 'accion', titulo: `«${r.documento}» necesita una corrección`, detalle: r.motivo, fecha: r.revisadoEn ?? r.fecha }
+      : { id: `n:recepcion:${r.recibo}`, documentoId: r.documentoId, tipo: 'recepcion', titulo: r.estado === 'aceptado' ? `Validamos «${r.documento}» en el expediente` :
         r.estado === 'prevalidado' ? `Prevalidamos la copia de «${r.documento}»` : `Recibimos «${r.documento}»`, detalle: `Acuse ${r.recibo}`, fecha: r.fecha });
   }
   if (permisos.ver_documentos_autorizados) {
@@ -210,7 +234,7 @@ export function construirVistaPortal({ proyecto: p, catalogo, hoy, recepciones, 
     if (titulo && h.finReal) historial.push({ id: `h:${h.tipo}`, fecha: h.finReal, titulo });
   }
   for (const a of p.aprobaciones ?? []) historial.push({ id: `e:${a.compuerta}`, fecha: a.fecha, titulo: `Etapa completada: ${ETAPA_CLIENTE[a.compuerta].nombre}` });
-  for (const r of recepciones) historial.push({ id: `r:${r.recibo}`, fecha: r.fecha.slice(0, 10), titulo: `Documento recibido: ${r.documento}` });
+  if (permisos.ver_documentos_autorizados) for (const r of recepciones) historial.push({ id: `r:${r.recibo}`, fecha: r.fecha.slice(0, 10), titulo: `Documento recibido: ${r.documento}` });
   historial.sort((x, y) => y.fecha.localeCompare(x.fecha) || x.id.localeCompare(y.id));
 
   return {
@@ -230,7 +254,8 @@ export function construirVistaPortal({ proyecto: p, catalogo, hoy, recepciones, 
     guiaDocumental: permisos.ver_documentos_autorizados ? guiaDocumental : null,
     documentosTecnicos: permisos.ver_documentos_autorizados ? catalogo.flatMap((r) =>
       r.activo !== false && !r.aportaCliente && (r.quienAporta === 'idc' || r.quienAporta === 'tercero')
-        ? [{ id: r.tipo, nombre: r.nombre, responsable: r.quienAporta, enExpediente: p.documentos.some((d) => d.tipo === r.tipo) }] : []) : [],
+        ? [{ id: r.tipo, nombre: r.nombre, responsable: r.quienAporta, enExpediente: p.documentos.some((d) => d.tipo === r.tipo),
+          ...(p.esMock && r.guiaPreparacion?.motivo && { orientacion: r.guiaPreparacion.motivo }) }] : []) : [],
     recepciones: permisos.ver_documentos_autorizados ? [...recepciones].sort((a, b) => b.fecha.localeCompare(a.fecha)) : [],
     notificaciones: notificaciones.slice(0, MAX_NOTIFICACIONES),
     historial,

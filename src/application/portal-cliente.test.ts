@@ -72,7 +72,7 @@ describe('proyección pública del portal', () => {
   it('confirmaciones, avisos e historial reflejan las recepciones sin texto interno', () => {
     const r = vistaDe({ recepciones: [recepcion('recibido'), recepcion('rechazado', { recibo: 'REC-BBBBBB', documentoId: 'recibo_cfe', documento: 'Recibo CFE', motivo: 'No se lee' })] });
     expect(r.recepciones.map((x) => x.recibo).sort()).toEqual(['REC-AAAAAA', 'REC-BBBBBB']);
-    expect(r.notificaciones.map((n) => n.titulo)).toEqual(expect.arrayContaining(['Recibimos «Carta poder»', 'Necesitamos que vuelvas a enviar «Recibo CFE»']));
+    expect(r.notificaciones.map((n) => n.titulo)).toEqual(expect.arrayContaining(['Recibimos «Carta poder»', '«Recibo CFE» necesita una corrección']));
     expect(r.historial.some((e) => e.titulo === 'Documento recibido: Carta poder')).toBe(true);
   });
 
