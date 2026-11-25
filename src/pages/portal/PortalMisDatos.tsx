@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { Check, Info, ShieldCheck } from 'lucide-react';
+import { IlustracionExpediente, PortadaPortal } from '@/components/portal/DisenoPortal';
 import { datosIniciales, pasosParticipantes, type DatosParticipantes } from '@/application/participantes';
 import { AlertPanel } from '@/components/ui/AlertPanel';
 import { Boton } from '@/components/ui/Boton';
@@ -7,6 +9,10 @@ import { useVistaPortal } from '@/hooks/PortalContexto';
 import { datosPortal } from '@/infrastructure/portal-http';
 
 const pasos = ['Titular', 'Representación', 'Testigos', 'Confirmación'];
+const ayudas = ['Elige el tipo de titular y captura su nombre o razón social.',
+  'Indica quién realizará el trámite. El representante legal y el apoderado pueden ser personas distintas.',
+  'Captura testigos únicamente cuando IDC te indique que se necesitan.',
+  'Revisa la información. Puedes regresar a cualquier paso antes de confirmar.'];
 
 export function PortalMisDatos() {
   const { permisos, demo } = useVistaPortal();
@@ -66,16 +72,19 @@ export function PortalMisDatos() {
 
   return (
     <section className="kvp-mis-datos">
-      <h1>Mis datos</h1>
-      {demo && <AlertPanel tono="alerta">Usa solo datos inventados. La captura de demostración se borra al reiniciar el servidor.</AlertPanel>}
-      <p>IDC utiliza estos datos para preparar el expediente de tu folio. Captura únicamente los datos solicitados y consulta con IDC si necesitas ejercer tus derechos de privacidad.</p>
+      <div className="kv-cliente-intro kv-cliente-intro--datos">
+        <PortadaPortal titulo="Tu información, en orden.">Estos datos ayudan a IDC a preparar los documentos de tu expediente.</PortadaPortal>
+        <IlustracionExpediente variante="identidad" />
+      </div>
+      <div className="kv-cliente-captura">
       <nav aria-label="Pasos de captura">
         <ol>{pasos.map((p, i) => <li key={p}>
           <button type="button" disabled={ocupado || version === null} aria-current={i === paso ? 'step' : undefined} onClick={() => setPaso(i)}>
-            {p}{(i < 2 && completos[i]) || (i === 3 && confirmado) ? ' ✓' : ''}
+            <span>{(i < 2 && completos[i]) || (i === 3 && confirmado) ? <Check size={15} aria-label="Completo" /> : i + 1}</span>{p}
           </button>
         </li>)}</ol>
       </nav>
+      <div className="kv-cliente-captura__centro">
       {version === null && !error && <p role="status">Consultando tus datos…</p>}
       {error && <AlertPanel tono="error" acciones={<Boton disabled={ocupado} onClick={() => {
         setError(''); setMensaje(''); setVersion(null); setIntento(intento + 1);
@@ -120,9 +129,17 @@ export function PortalMisDatos() {
         </fieldset>
         <div className="kvp-mis-datos__acciones">
           {paso > 0 && <Boton type="button" disabled={ocupado} onClick={() => setPaso(paso - 1)}>Atrás</Boton>}
-          <Boton type="submit" disabled={ocupado || (paso === 3 && confirmado)}>{ocupado ? 'Guardando…' : paso === 3 ? 'Confirmar datos' : 'Guardar y continuar'}</Boton>
+          <Boton type="submit" variante="primario" cargando={ocupado} disabled={paso === 3 && confirmado}>{ocupado ? 'Guardando…' : paso === 3 ? 'Confirmar datos' : 'Guardar y continuar'}</Boton>
         </div>
       </form>}
+      </div>
+      <aside className="kv-cliente-captura__ayuda">
+        <h2><Info size={18} aria-hidden="true" /> {pasos[paso]}</h2><p>{ayudas[paso]}</p>
+        <h2><ShieldCheck size={18} aria-hidden="true" /> Privacidad</h2>
+        <p>IDC utiliza estos datos para preparar el expediente de tu folio. Comunícate con IDC para ejercer tus derechos de privacidad.</p>
+        {demo && <p>Usa únicamente datos ficticios.</p>}
+      </aside>
+      </div>
     </section>
   );
 }

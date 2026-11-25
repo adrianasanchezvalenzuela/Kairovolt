@@ -18,6 +18,7 @@ export const VALOR_CSRF_PORTAL = 'kairovolt';
 const FOLIO = /^KV-(\d{4}|MOCK)-\d{3,}$/;
 
 export interface OpcionesPortal {
+  cookie?: { nombre: string; ruta: string };
   participantes?: ParticipantesPortal;
   accesos: AccesosPortal;
   recepciones: RecepcionesPortal;
@@ -48,6 +49,7 @@ type Env = { Variables: { acceso: AccesoPortal } };
 export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
   const app = new Hono<Env>();
   const ahora = o.ahora ?? Date.now;
+  const cookie = o.cookie ?? { nombre: COOKIE_PORTAL, ruta: '/' };
   const sesiones = o.secreto ? crearSesionesPortal(o.secreto, ahora) : null;
   const intentosFolio = crearLimitadores(5, 60_000, ahora);
   const intentosIp = crearLimitadores(30, 10 * 60_000, ahora);
@@ -82,12 +84,12 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
     const acceso = await o.accesos.verificar(folio, codigo).catch(() => null);
     if (!acceso) return invalido();
     intentosFolio.exito(`f:${folio}`);
-    setCookie(c, COOKIE_PORTAL, sesiones.crear({ acceso: acceso.id, folio: acceso.folio }), { httpOnly: true, secure: o.secureCookies === true, sameSite: 'Strict', path: '/', maxAge: DURACION_PORTAL_S });
+    setCookie(c, cookie.nombre, sesiones.crear({ acceso: acceso.id, folio: acceso.folio }), { httpOnly: true, secure: o.secureCookies === true, sameSite: 'Strict', path: cookie.ruta, maxAge: DURACION_PORTAL_S });
     return c.json({ ok: true, folio: acceso.folio });
   });
 
   app.delete('/sesion', (c) => {
-    deleteCookie(c, COOKIE_PORTAL, { secure: o.secureCookies === true, sameSite: 'Strict', path: '/' });
+    deleteCookie(c, cookie.nombre, { secure: o.secureCookies === true, sameSite: 'Strict', path: cookie.ruta });
     return c.json({ ok: true });
   });
 
@@ -96,7 +98,7 @@ export function crearRutasPortal(o: OpcionesPortal): Hono<Env> {
     const ruta = new URL(c.req.url).pathname;
     if (ruta.endsWith('/estado') || ruta.endsWith('/acceso') || ruta.endsWith('/sesion')) return next();
     if (!sesiones) return c.json({ error: 'portal_no_disponible' }, 503);
-    const datos = sesiones.leer(getCookie(c, COOKIE_PORTAL));
+    const datos = sesiones.leer(getCookie(c, cookie.nombre));
     if (!datos) return c.json({ error: 'sin_sesion' }, 401);
     const acceso = await o.accesos.obtener(datos.acceso).catch(() => null);
     if (!acceso || acceso.folio !== datos.folio) return c.json({ error: 'sin_sesion' }, 401); // revocado, vencido o alterado

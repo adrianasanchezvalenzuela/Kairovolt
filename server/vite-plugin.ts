@@ -16,9 +16,12 @@ export function kairovoltApi(): Plugin {
       const env = join(server.config.root, 'server', '.env');
       if (existsSync(env)) process.loadEnvFile(env); // no pisa variables ya definidas en el entorno
       const config = leerConfig(process.env);
-      const listener = getRequestListener(crearApp(config).fetch);
+      const listener = getRequestListener(crearApp(config, fetch, Date.now, true).fetch);
       server.middlewares.use((req, res, next) => {
-        if (req.url?.startsWith('/api/')) void listener(req, res);
+        if (req.url === '/portal/demo' || req.url === '/portal/demo/') {
+          res.writeHead(302, { Location: '/demo/portal' });
+          res.end();
+        } else if (req.url?.startsWith('/api/')) void listener(req, res);
         else next();
       });
       server.config.logger.info(`  KairóVolt API en el mismo puerto · Zoho: ${config.zoho ? 'credenciales presentes' : 'no configurado'}`);

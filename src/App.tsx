@@ -21,18 +21,22 @@ import { ProyectoDetalle } from '@/pages/ProyectoDetalle';
 import { PortalProveedor } from '@/hooks/PortalContexto';
 import { PortalAcceso } from '@/pages/portal/PortalAcceso';
 import { PortalAvisos } from '@/pages/portal/PortalAvisos';
-import { PortalDocumentos } from '@/pages/portal/PortalDocumentos';
 import { PortalHistorial } from '@/pages/portal/PortalHistorial';
 import { PortalInicio } from '@/pages/portal/PortalInicio';
 import { PortalMisDatos } from '@/pages/portal/PortalMisDatos';
+import { CargaPortal } from '@/components/portal/DisenoPortal';
+
+const PortalDocumentos = lazy(() => import('@/pages/portal/PortalDocumentos').then((m) => ({ default: m.PortalDocumentos })));
+const PortalDemos = import.meta.env.DEV ? lazy(() => import('@/pages/portal/PortalDemos').then((m) => ({ default: m.PortalDemos }))) : null;
 
 /** Galería de componentes: solo en desarrollo (no entra al build de producción). */
 const Componentes = import.meta.env.DEV ? lazy(() => import('@/pages/Componentes').then((m) => ({ default: m.Componentes }))) : null;
 
 export function App() {
+  const demoLocal = import.meta.env.DEV && window.location.pathname.startsWith('/demo/portal');
   return (
     <FuenteDatosProvider>
-    <BrowserRouter>
+    <BrowserRouter basename={demoLocal ? '/demo' : '/'}>
       <Routes>
         <Route element={<AppShell />}>
           <Route index element={<Dashboard />} />
@@ -54,10 +58,11 @@ export function App() {
         </Route>
         <Route path="portal" element={<PortalProveedor />}>
           <Route index element={<PortalAcceso />} />
+          {PortalDemos && <Route path="demos" element={<Suspense fallback={null}><PortalDemos /></Suspense>} />}
           <Route element={<PortalLayout />}>
             <Route path="inicio" element={<PortalInicio />} />
             <Route path="mis-datos" element={<PortalMisDatos />} />
-            <Route path="documentos" element={<PortalDocumentos />} />
+            <Route path="documentos" element={<Suspense fallback={<CargaPortal etiqueta="Abriendo tus documentos…" />}><PortalDocumentos /></Suspense>} />
             <Route path="avisos" element={<PortalAvisos />} />
             <Route path="historial" element={<PortalHistorial />} />
           </Route>

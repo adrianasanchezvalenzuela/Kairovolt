@@ -8,6 +8,7 @@ import { FORMATO_CODIGO, generarCodigo, huellaCodigo, normalizarCodigo } from '.
 import { CODIGO_DEMO, crearAccesosMemoria, FOLIO_DEMO } from './memoria';
 import { COOKIE_PORTAL, crearSesionesPortal, DURACION_PORTAL_S } from './sesion';
 import { crearAccesosSupabase, crearAlmacenSupabase } from './supabase';
+import { demosPortal } from '../../src/data/demos-portal';
 
 const TOKEN = 'token-de-emergencia-largo';
 const H = { 'Content-Type': 'application/json' };
@@ -23,6 +24,25 @@ async function entrar(app: ReturnType<typeof crearApp>, folio = FOLIO_DEMO, codi
   return { r, cookie: (r.headers.get('set-cookie') ?? '').split(';')[0] ?? '' };
 }
 const get = (app: ReturnType<typeof crearApp>, ruta: string, cookie = '') => app.request(ruta, { headers: cookie ? { Cookie: cookie } : {} });
+
+it('aísla los casos locales de Supabase y presenta un expediente con envíos previos', async () => {
+  const app = crearApp(demo({ supabase: supabaseCfg }), async () => { throw new Error('La demo no debe contactar Supabase'); }, Date.now, true);
+  const entrarDemo = async ({ folio, codigo }: typeof demosPortal[number]) => {
+    const r = await app.request('/api/demo/portal/acceso', { method: 'POST', headers: H, body: JSON.stringify({ folio, codigo }) });
+    expect(r.status).toBe(200);
+    return r.headers.get('set-cookie')!.split(';')[0]!;
+  };
+  const primera = await entrarDemo(demosPortal[0]);
+  const segunda = await entrarDemo(demosPortal[1]);
+  const pendiente = await get(app, '/api/demo/portal/vista', primera);
+  const enviado = await get(app, '/api/demo/portal/vista', segunda);
+  expect(await pendiente.json()).toMatchObject({ folio: demosPortal[0].folio, recepciones: [] });
+  expect(await enviado.json()).toMatchObject({
+    folio: demosPortal[1].folio,
+    recepciones: expect.arrayContaining([expect.objectContaining({ estado: 'aceptado' }), expect.objectContaining({ estado: 'en_revision' })]),
+  });
+  expect((await get(app, '/api/portal/vista', segunda)).status).toBe(401);
+});
 const subir = (app: ReturnType<typeof crearApp>, cookie: string, id: string, bytes: Uint8Array, nombre = 'doc.pdf', tipo = 'application/pdf', headers: Record<string, string> = CSRF) => {
   const f = new FormData();
   f.set('archivo', new File([bytes as unknown as BlobPart], nombre, { type: tipo }));

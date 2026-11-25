@@ -22,7 +22,7 @@ import { PERMISOS_PORTAL_POR_DEFECTO, type PermisosPortal } from '../src/applica
 import { catalogoParaZona, CONFIGURACION_ZONA_POR_DEFECTO } from '../src/domain/checklist/checklist';
 import { hayRequisitosPendientesDeIDC } from '../src/domain/checklist/catalogo';
 import { catalogoDeDemostracion, leerCatalogoSupabase, requisitosChecklist } from './catalogo';
-import { crearAccesosMemoria, crearParticipantesDemo, crearRecepcionesMemoria, almacenDescarte, fuenteDemo, CODIGO_DEMO } from './portal/memoria';
+import { crearAccesosMemoria, crearParticipantesDemo, crearRecepcionesMemoria, almacenDescarte, fuenteDemo, fuenteDemosLocales, CODIGO_DEMO } from './portal/memoria';
 import { crearFuenteZoho, fuenteVacia } from './portal/fuente-zoho';
 import { crearRutasPortal } from './portal/rutas';
 import { crearParticipantesSupabase } from './portal/participantes';
@@ -72,7 +72,7 @@ const str = (v: unknown, max = 2000): string | null => (typeof v === 'string' &&
 const en = <T extends string>(lista: readonly T[], v: unknown): T | undefined => lista.find((x) => x === v);
 const publico = (a: Actor) => ({ correo: a.correo, nombre: a.nombre, rol: a.rol, via: a.via });
 
-export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora: () => number = Date.now) {
+export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora: () => number = Date.now, demoLocal = false) {
   const app = new Hono<Env>();
   app.use('*', secureHeaders({
     contentSecurityPolicy: {
@@ -132,6 +132,21 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
     ahora,
   });
   app.route('/api/portal', portal);
+  if (demoLocal) {
+    app.route('/api/demo/portal', crearRutasPortal({
+      accesos: crearAccesosMemoria(ahora, true, true),
+      recepciones: crearRecepcionesMemoria(ahora, true),
+      participantes: crearParticipantesDemo(true),
+      almacen: almacenDescarte,
+      fuente: fuenteDemosLocales,
+      catalogo: async () => requisitosChecklist(catalogoDeDemostracion()),
+      secreto: derivarSecretoPortal(crypto.randomUUID()),
+      cookie: { nombre: 'kv_portal_demo', ruta: '/api/demo/portal' },
+      persistencia: { accesos: 'memoria', archivos: 'no_se_guardan' },
+      codigoDemo: CODIGO_DEMO,
+      ahora,
+    }));
+  }
 
   const metodos = { token: config.adminToken !== null, correo: sb !== null && !!config.supabase?.publishableKey };
   const loginHabilitado = metodos.token || metodos.correo;

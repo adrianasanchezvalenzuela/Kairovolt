@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from 'react';
+import { UploadCloud } from 'lucide-react';
 import { ErrorPortal, type ResultadoSubida } from '@/application/portal-acceso';
 import type { DocumentoSolicitado } from '@/application/portal-cliente';
 import { clasificarArchivos } from '@/components/feature/DocumentUploader';
@@ -12,7 +13,7 @@ export interface SubirDocumentoProps {
   conservaArchivos: boolean;
 }
 
-type Fase = { tipo: 'libre' } | { tipo: 'subiendo'; nombre: string; progreso: number } | { tipo: 'listo'; recibo: string; nombre: string } | { tipo: 'error'; mensaje: string };
+type Fase = { tipo: 'libre' } | { tipo: 'subiendo'; nombre: string; peso: string; progreso: number } | { tipo: 'listo'; recibo: string; nombre: string } | { tipo: 'error'; mensaje: string };
 
 /**
  * Botón grande para elegir (o fotografiar) un archivo y enviarlo. Muestra progreso real, confirmación con el acuse de recibo y
@@ -26,16 +27,17 @@ export function SubirDocumento({ documento, onSubir, conservaArchivos }: SubirDo
   const elegir = async (lista: FileList | null) => {
     const archivo = lista?.[0];
     if (entrada.current) entrada.current.value = '';
-    if (!archivo) return;
+    if (!archivo || fase.tipo === 'subiendo') return;
     const { aceptados, rechazados } = clasificarArchivos([archivo], { aceptar: FORMATOS_SUBIDA, maxBytes: MAX_BYTES_SUBIDA });
     if (aceptados.length === 0) {
       const motivo = rechazados[0]?.motivo ?? '';
       setFase({ tipo: 'error', mensaje: motivo.startsWith('supera') ? 'El archivo pesa más de 10 MB. Elige uno más ligero.' : motivo.startsWith('tipo') ? 'Solo se aceptan archivos PDF, JPG, PNG o WEBP.' : 'El archivo está vacío.' });
       return;
     }
-    setFase({ tipo: 'subiendo', nombre: archivo.name, progreso: 0 });
+    const peso = archivo.size < 1024 * 1024 ? Math.max(1, Math.round(archivo.size / 1024)) + ' KB' : (archivo.size / (1024 * 1024)).toFixed(1) + ' MB';
+    setFase({ tipo: 'subiendo', nombre: archivo.name, peso, progreso: 0 });
     try {
-      const r = await onSubir(documento.id, archivo, (progreso) => setFase({ tipo: 'subiendo', nombre: archivo.name, progreso }));
+      const r = await onSubir(documento.id, archivo, (progreso) => setFase({ tipo: 'subiendo', nombre: archivo.name, peso, progreso }));
       setFase({ tipo: 'listo', recibo: r.recepcion.recibo, nombre: r.recepcion.archivo });
     } catch (e) {
       setFase({ tipo: 'error', mensaje: e instanceof ErrorPortal ? e.message : 'No se pudo enviar el archivo. Intenta de nuevo.' });
@@ -55,7 +57,11 @@ export function SubirDocumento({ documento, onSubir, conservaArchivos }: SubirDo
 
   const subiendo = fase.tipo === 'subiendo';
   return (
-    <div className="kvp-subir">
+    <div className="kvp-subir kv-cliente-carga-archivo" onDragOver={(e) => e.preventDefault()} onDrop={(e) => {
+      e.preventDefault();
+      void elegir(e.dataTransfer.files);
+    }}>
+      <UploadCloud size={27} aria-hidden="true" />
       <label htmlFor={id} className={`kvp-boton${documento.estado === 'pendiente' ? '' : ' kvp-boton--suave'}`} aria-disabled={subiendo || undefined}>
         {subiendo ? 'Enviando…' : documento.estado === 'rechazado' || documento.estado === 'vencido' ? 'Enviar de nuevo' : 'Subir archivo'}
         <span className="kv-solo-lectores"> para {documento.nombre}</span>
@@ -64,11 +70,11 @@ export function SubirDocumento({ documento, onSubir, conservaArchivos }: SubirDo
       {subiendo && (
         <div role="progressbar" aria-label={`Enviando ${fase.nombre}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={fase.progreso}>
           <div className="kvp-barra"><div style={{ width: `${fase.progreso}%` }} /></div>
-          <p className="kvp-ayuda">{fase.progreso}% · {fase.nombre}</p>
+          <p className="kvp-ayuda">{fase.progreso}% · {fase.nombre} · {fase.peso}</p>
         </div>
       )}
       {fase.tipo === 'error' && <AlertPanel tono="error" onCerrar={() => setFase({ tipo: 'libre' })}>{fase.mensaje}</AlertPanel>}
-      {fase.tipo === 'libre' && <p className="kvp-ayuda">PDF, JPG, PNG o WEBP · máximo 10 MB. Desde el teléfono puedes tomar la foto.</p>}
+      {fase.tipo === 'libre' && <p className="kvp-ayuda"><span className="kv-cliente-arrastrar">Puedes arrastrar el archivo aquí. </span>PDF, JPG, PNG o WEBP · máximo 10 MB.</p>}
     </div>
   );
 }

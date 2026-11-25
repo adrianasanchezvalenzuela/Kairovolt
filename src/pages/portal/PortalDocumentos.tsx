@@ -1,116 +1,133 @@
 import { useState } from 'react';
+import { ArrowRight, FileCheck2, FileText, Inbox, TriangleAlert } from 'lucide-react';
 import type { Recepcion } from '@/application/portal-cliente';
-import { ETAPA_CLIENTE } from '@/domain/portal/textos';
-import { ESTADO_DOCUMENTO, REQUIERE_ACCION } from '@/components/portal/estados';
+import { IlustracionExpediente, PortadaPortal } from '@/components/portal/DisenoPortal';
+import { ESTADO_DOCUMENTO } from '@/components/portal/estados';
 import { SubirDocumento } from '@/components/portal/SubirDocumento';
 import { AlertPanel } from '@/components/ui/AlertPanel';
+import { Dialogo } from '@/components/ui/Dialogo';
 import { EmptyState } from '@/components/ui/Estados';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { ETAPA_CLIENTE } from '@/domain/portal/textos';
 import { usePortal, useVistaPortal } from '@/hooks/PortalContexto';
 
-const fechaHora = (iso: string) => new Date(iso).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const filtros = ['Todos', 'Pendientes', 'En revisión', 'Por corregir', 'Aceptados'] as const;
+const aportante = { cliente: 'Cliente', idc: 'IDC', tercero: 'Tercero', pendiente: 'Por confirmar' };
+const estadoRecibo = { recibido: 'Recibido', en_revision: 'En revisión', aceptado: 'Aceptado por IDC', rechazado: 'Requiere corrección' };
 
-/** Documentos que IDC te pide, con el botón para subirlos, y las confirmaciones de recepción. */
 export function PortalDocumentos() {
   const v = useVistaPortal();
   const { subir } = usePortal();
-  // La confirmación vive en la página (no en la tarjeta): al subirse, el documento pasa a «ya entregados» y su tarjeta se reemplaza.
-  const [ultima, setUltima] = useState<{ recepcion: Recepcion; guardado: boolean } | null>(null);
-  const subirYConfirmar: typeof subir = async (id, archivo, onProgreso) => {
-    const res = await subir(id, archivo, onProgreso);
-    setUltima({ recepcion: res.recepcion, guardado: res.archivosGuardados });
-    return res;
+  const [filtro, setFiltro] = useState<(typeof filtros)[number]>('Todos');
+  const [abierto, setAbierto] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const [acuse, setAcuse] = useState<{ recepcion: Recepcion; guardado: boolean } | null>(null);
+
+  if (v.documentos === null) return <AlertPanel tono="info" titulo="Documentos no disponibles">Tu acceso no incluye esta sección. Si la necesitas, comunícate con IDC.</AlertPanel>;
+
+  const solicitudes = new Map(v.documentos.map((d) => [d.id, d]));
+  const guias = new Map((v.guiaDocumental ?? []).map((g) => [g.id, g]));
+  const ids = [...new Set([...solicitudes.keys(), ...guias.keys()])];
+  const listado = ids.filter((id) => {
+    const estado = solicitudes.get(id)?.estado;
+    switch (filtro) {
+      case 'Pendientes': return estado === 'pendiente' || estado === 'vencido' || estado === 'por_vencer';
+      case 'En revisión': return estado === 'recibido' || estado === 'en_revision';
+      case 'Por corregir': return estado === 'rechazado';
+      case 'Aceptados': return estado === 'aceptado';
+      default: return true;
+    }
+  });
+  const guia = abierto ? guias.get(abierto) : undefined;
+  const documento = abierto ? solicitudes.get(abierto) : undefined;
+  const versiones = v.recepciones.filter((r) => r.documentoId === abierto);
+  const badge = (id: string) => {
+    const d = solicitudes.get(id);
+    const g = guias.get(id);
+    const rec = v.recepciones.find((r) => r.documentoId === id);
+    if (!d) return <StatusBadge tono={g?.aplicabilidad === 'pendiente_revision' ? 'alerta' : 'neutro'} variante="suave">
+      {g?.aplicabilidad === 'no_aplica' ? 'No aplica' : g?.aplicabilidad === 'pendiente_revision' ? 'Por confirmar' : 'Disponible en guía'}
+    </StatusBadge>;
+    return <StatusBadge tono={ESTADO_DOCUMENTO[d.estado].tono} variante="suave">{
+      d.estado === 'rechazado' && (rec?.causa === 'incompleto' || rec?.causa === 'faltan_datos')
+        ? 'Información incompleta' : d.estado === 'en_revision' && rec?.estado === 'en_revision'
+          ? 'En revisión por IDC' : ESTADO_DOCUMENTO[d.estado].texto
+    }</StatusBadge>;
   };
 
-  if (v.documentos === null) {
-    return <AlertPanel tono="info" titulo="Documentos no disponibles">Tu acceso no incluye la sección de documentos. Si la necesitas, pídesela a IDC.</AlertPanel>;
-  }
-  const porHacer = v.documentos.filter((d) => REQUIERE_ACCION.includes(d.estado));
-  const resto = v.documentos.filter((d) => !REQUIERE_ACCION.includes(d.estado) && d.estado !== 'no_aplica');
-  const excluidos = v.documentos.filter((d) => d.estado === 'no_aplica');
+  const subirYConfirmar: typeof subir = async (id, archivo, progreso) => {
+    setOcupado(true);
+    try {
+      const resultado = await subir(id, archivo, progreso);
+      setAcuse({ recepcion: resultado.recepcion, guardado: resultado.archivosGuardados });
+      return resultado;
+    } finally { setOcupado(false); }
+  };
 
-  const tarjeta = (d: (typeof v.documentos)[number] & object) => (
-    <li key={d.id} className={`kvp-doc${REQUIERE_ACCION.includes(d.estado) ? ' kvp-doc--accion' : ''}`}>
-      <div className="kvp-doc__cab">
-        <p className="kvp-doc__nombre">{d.nombre}</p>
-        <StatusBadge tono={ESTADO_DOCUMENTO[d.estado].tono} variante="suave" tamano="md">
-          {d.estado === 'en_revision' && v.recepciones.find((r) => r.documentoId === d.id)?.estado === 'en_revision'
-            ? 'En revisión por IDC' : d.estado === 'rechazado' &&
-              ['incompleto', 'faltan_datos'].includes(v.recepciones.find((r) => r.documentoId === d.id)?.causa ?? '')
-              ? 'Información incompleta' : ESTADO_DOCUMENTO[d.estado].texto}
-        </StatusBadge>
+  return <>
+    <div className="kv-cliente-intro">
+      <PortadaPortal titulo="Preparemos tu expediente.">Consulta qué documentos te corresponden y cómo preparar cada envío.</PortadaPortal>
+      <IlustracionExpediente variante="documentos" />
+    </div>
+    {acuse && !abierto && <AlertPanel tono="ok" titulo="Archivo recibido" onCerrar={() => setAcuse(null)}>
+      {acuse.recepcion.archivo} · Acuse <strong className="kv-mono">{acuse.recepcion.recibo}</strong>.
+      {!acuse.guardado && ' El archivo de demostración no se conserva.'}
+    </AlertPanel>}
+    <section className="kv-cliente-docs" aria-label="Requisitos documentales">
+      <div className="kv-cliente-linea"><h2>Guía documental</h2><span>{listado.length} requisitos</span></div>
+      <div className="kv-cliente-filtros" role="group" aria-label="Filtrar documentos">
+        {filtros.map((f) => <button type="button" key={f} aria-pressed={f === filtro} onClick={() => setFiltro(f)}>{f}</button>)}
       </div>
-      <p className="kvp-doc__texto">Etapa: {ETAPA_CLIENTE[d.etapa].nombre}{d.vigencia ? ` · Vigencia: ${d.vigencia}` : ''}</p>
-      {d.detalle && <p className="kvp-doc__texto">{d.detalle}</p>}
-      {d.puedeSubir && <SubirDocumento documento={d} onSubir={subirYConfirmar} conservaArchivos={v.persistencia.archivos === 'supabase'} />}
-    </li>
-  );
-
-  return (
-    <>
-      {ultima && (
-        <AlertPanel tono="ok" titulo="¡Recibido!" onCerrar={() => setUltima(null)}>
-          Recibimos «{ultima.recepcion.archivo}». Tu acuse de recibo es <strong className="kvp-recibo__acuse">{ultima.recepcion.recibo}</strong>.
-          {!ultima.guardado && <> <em>(Modo demostración: el archivo no se conserva.)</em></>}
-        </AlertPanel>
-      )}
-      <h1>Mis documentos</h1>
-      <p className="kv-suave">Estos son los documentos que necesitamos de tu parte. En cuanto subas uno, te damos un acuse de recibo.</p>
-      <AlertPanel tono="info" titulo="Preparación documental">Esta guía ayuda a organizar tu expediente; no garantiza la aceptación de CFE. Los requisitos marcados pendientes deben ser confirmados por IDC antes de usarse como lista definitiva.</AlertPanel>
-
-      {v.documentos.length === 0 && !v.avance.exacto && <AlertPanel tono="info" titulo="IDC aún no ha cargado una lista para tu proyecto">La guía general está disponible abajo. Cuando IDC confirme qué aplica a tu instalación, los documentos solicitados aparecerán aquí y podrás enviarlos.</AlertPanel>}
-
-      <h2>Por entregar {porHacer.length > 0 && <StatusBadge tono="alerta" variante="solido">{porHacer.length}</StatusBadge>}</h2>
-      {porHacer.length === 0
-        ? (v.documentos.length > 0 || v.avance.exacto) && <EmptyState compacto icono="✓" titulo="No tienes nada por entregar" descripcion="Cuando IDC necesite algo más, te lo avisaremos aquí." />
-        : <ul className="kvp-docs" aria-label="Documentos por entregar">{porHacer.map(tarjeta)}</ul>}
-
-      {resto.length > 0 && (
-        <>
-          <h2>Ya entregados</h2>
-          <ul className="kvp-docs" aria-label="Documentos ya entregados">{resto.map(tarjeta)}</ul>
-        </>
-      )}
-      {excluidos.length > 0 && <details><summary>Requisitos que no aplican</summary><ul className="kvp-docs">{excluidos.map(tarjeta)}</ul></details>}
-
-      {v.guiaDocumental && v.guiaDocumental.length > 0 && <>
-        <h2>Guía documental</h2>
-        <ul className="kvp-docs" aria-label="Guía documental disponible">
-          {v.guiaDocumental.map((r) => <li key={r.id} className="kvp-doc">
-            <div className="kvp-doc__cab"><p className="kvp-doc__nombre">{r.nombre}</p>
-              <StatusBadge tono={r.validacionIdc === 'validado' ? 'ok' : 'alerta'} variante="suave">{r.validacionIdc === 'validado' ? 'Validado por IDC' : 'Pendiente de validación'}</StatusBadge>
+      {!listado.length ? <EmptyState titulo="No hay documentos en esta vista" descripcion="Selecciona otro filtro para ver los requisitos disponibles." /> :
+        <ul className="kv-cliente-docs__lista">{listado.map((id) => {
+          const d = solicitudes.get(id);
+          const g = guias.get(id);
+          const Icono = d?.estado === 'aceptado' ? FileCheck2 : d?.estado === 'rechazado' ? TriangleAlert : FileText;
+          return <li key={id} data-estado={d?.estado}>
+            <span className="kv-cliente-docs__icono"><Icono size={21} aria-hidden="true" /></span>
+            <div className="kv-cliente-docs__info"><h3>{d?.nombre ?? g?.nombre}</h3>
+              {(d?.detalle || g?.descripcion) && <p>{d?.detalle ?? g?.descripcion}</p>}
+              {g && <small>Aporta {aportante[g.quienAporta]}</small>}
             </div>
-            {r.descripcion && <p className="kvp-doc__texto">{r.descripcion}</p>}
-            <p className="kvp-doc__texto">Etapa {r.etapa} · {r.quienAporta === 'pendiente' ? 'Aportante por confirmar' : `Aporta: ${r.quienAporta}`} · {r.canal === 'fisico' ? 'Entrega física' : 'Digital'}{r.requiereVigencia ? ' · Requiere vigencia' : ''}</p>
-            {r.condicion && <p className="kvp-doc__texto">Condición: {r.condicion} <strong>(pendiente de revisión)</strong></p>}
-            {r.aplicabilidad === 'pendiente_revision' && <p className="kvp-doc__texto">IDC debe confirmar si aplica a tu instalación; no se cuenta como autorización para avanzar.</p>}
-            {r.instrucciones && <p className="kvp-doc__texto">{r.instrucciones}</p>}
-            {r.camposEsperados.length > 0 && <p className="kvp-doc__texto">Debe incluir: {r.camposEsperados.join(' · ')}</p>}
-            {r.ejemplosAutorizados.length > 0 && <p className="kvp-doc__texto">Ejemplos: {r.ejemplosAutorizados.join(' · ')}</p>}
-          </li>)}
-        </ul>
-      </>}
-
-      <h2>Confirmaciones de recepción</h2>
-      {v.recepciones.length === 0
-        ? <EmptyState compacto titulo="Aún no hay confirmaciones" descripcion="Cada archivo que subas desde aquí aparecerá con su acuse de recibo." />
-        : (
-          <ul className="kvp-docs" aria-label="Confirmaciones de recepción">
-            {v.recepciones.map((r) => (
-              <li key={r.recibo} className="kvp-doc">
-                <div className="kvp-recibo">
-                  <span className={`kvp-recibo__icono${r.estado === 'rechazado' ? ' kvp-recibo__icono--rechazo' : ''}`} aria-hidden="true">{r.estado === 'rechazado' ? '!' : '✓'}</span>
-                  <div>
-                    <p className="kvp-doc__nombre">{r.documento}</p>
-                    <p className="kvp-doc__texto">{r.archivo} · {fechaHora(r.fecha)}</p>
-                    <p className="kvp-doc__texto">Acuse <span className="kvp-recibo__acuse">{r.recibo}</span> · {r.sustituida ? 'Sustituido por otro envío' : r.estado === 'recibido' ? 'Recibido, pendiente de revisión' : r.estado === 'en_revision' ? 'En revisión por IDC' : r.estado === 'aceptado' ? 'Aceptado por IDC' : 'Requiere corrección'}</p>
-                    {r.motivo && <p className="kvp-doc__texto">{r.motivo}</p>}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-    </>
-  );
+            <div className="kv-cliente-docs__acciones">{badge(id)}<button type="button" onClick={() => setAbierto(id)}>
+              {d?.puedeSubir ? 'Preparar envío' : 'Ver detalle'} <ArrowRight size={16} aria-hidden="true" />
+            </button></div>
+          </li>;
+        })}</ul>}
+    </section>
+    <section className="kv-cliente-seccion kv-cliente-recepciones">
+      <h2><Inbox size={21} aria-hidden="true" /> Confirmaciones de recepción</h2>
+      {v.recepciones.length === 0 ? <EmptyState compacto titulo="Aún no hay confirmaciones" descripcion="Cada envío aparecerá aquí con su acuse." /> :
+        <ul>{v.recepciones.map((r) => <li key={r.recibo}>
+          <div><strong>{r.documento}</strong><p>{r.archivo} · <span className="kv-mono">{r.recibo}</span></p></div>
+          <div><span>{r.sustituida ? 'Sustituido' : estadoRecibo[r.estado]}</span><time dateTime={r.fecha}>{r.fecha.slice(0, 10)}</time></div>
+        </li>)}</ul>}
+    </section>
+    <Dialogo abierto={!!abierto} titulo={documento?.nombre ?? guia?.nombre ?? 'Documento'} onCerrar={() => setAbierto(null)} posicion="derecha" ocupado={ocupado}>
+      {abierto && <div className="kv-cliente-detalle">
+        {acuse?.recepcion.documentoId === abierto && <AlertPanel tono="ok" titulo="Archivo recibido">
+          Acuse <strong className="kv-mono">{acuse.recepcion.recibo}</strong>.
+          {!acuse.guardado && ' El archivo de demostración no se conserva.'}
+        </AlertPanel>}
+        {badge(abierto)}
+        {(documento ?? guia) && <p>{ETAPA_CLIENTE[(documento ?? guia)!.etapa].nombre}</p>}
+        {guia?.descripcion && <p>{guia.descripcion}</p>}
+        {documento?.detalle && <AlertPanel tono={documento.estado === 'rechazado' ? 'error' : 'info'}>{documento.detalle}</AlertPanel>}
+        {guia && <>
+          <dl><dt>Quién lo aporta</dt><dd>{aportante[guia.quienAporta]}</dd><dt>Entrega</dt><dd>{guia.canal === 'fisico' ? 'Física' : 'Digital'}</dd>
+            {guia.requiereVigencia && <><dt>Vigencia</dt><dd>{documento?.vigencia ?? 'Pendiente de confirmar'}</dd></>}</dl>
+          {guia.validacionIdc === 'pendiente' && <p className="kv-cliente-nota">Guía pendiente de validación por IDC.</p>}
+          {guia.condicion && <p>{guia.condicion}</p>}
+          {guia.instrucciones && <><h3>Cómo prepararlo</h3><p>{guia.instrucciones}</p></>}
+          {guia.camposEsperados.length > 0 && <><h3>Qué debe incluir</h3><ul>{guia.camposEsperados.map((c) => <li key={c}>{c}</li>)}</ul></>}
+          {guia.ejemplosAutorizados.length > 0 && <><h3>Ejemplos autorizados</h3><ul>{guia.ejemplosAutorizados.map((e) => <li key={e}>{e}</li>)}</ul></>}
+        </>}
+        {documento?.puedeSubir && <SubirDocumento key={documento.id} documento={documento} onSubir={subirYConfirmar} conservaArchivos={v.persistencia.archivos === 'supabase'} />}
+        {versiones.length > 0 && <><h3>Historial de envíos</h3><ul className="kv-cliente-versiones">{versiones.map((r) => <li key={r.recibo}>
+          <strong>{r.archivo}</strong><span>{r.sustituida ? 'Sustituido' : estadoRecibo[r.estado]} · {r.fecha.slice(0, 10)}</span>
+          <code>{r.recibo}</code>{r.motivo && <p>{r.motivo}</p>}
+        </li>)}</ul></>}
+      </div>}
+    </Dialogo>
+  </>;
 }

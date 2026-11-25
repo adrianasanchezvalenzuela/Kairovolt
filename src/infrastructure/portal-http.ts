@@ -2,6 +2,8 @@ import { ErrorPortal, type CodigoErrorPortal, type EstadoPortal, type PortalRepo
 import type { VersionParticipantes } from '@/application/participantes';
 
 const CSRF = { 'X-Requested-With': 'kairovolt' };
+const rutaPortal = () => import.meta.env.DEV && window.location.pathname.startsWith('/demo/portal')
+  ? '/api/demo/portal' : '/api/portal';
 const CODIGOS: readonly CodigoErrorPortal[] = [
   'acceso_invalido', 'demasiados_intentos', 'sin_sesion', 'sin_permiso', 'no_disponible', 'proyecto_no_disponible', 'documento_no_solicitado',
   'documento_no_admite_envio', 'tipo_no_permitido', 'tipo_no_coincide', 'vacio', 'demasiado_grande', 'no_se_pudo_guardar',
@@ -34,26 +36,26 @@ async function llamar(metodo: 'GET' | 'POST' | 'DELETE', ruta: string, cuerpo?: 
 }
 
 export async function datosPortal(entrada?: VersionParticipantes): Promise<VersionParticipantes | null> {
-  const { status, data } = await llamar(entrada ? 'POST' : 'GET', '/api/portal/participantes', entrada);
+  const { status, data } = await llamar(entrada ? 'POST' : 'GET', rutaPortal() + '/participantes', entrada);
   if (status !== 200) throw errorDeRespuesta(status, data);
   return data.actual as VersionParticipantes | null;
 }
 
 export const portalHttp: PortalRepositorio = {
   async estado() {
-    const { status, data } = await llamar('GET', '/api/portal/estado');
+    const { status, data } = await llamar('GET', rutaPortal() + '/estado');
     if (status !== 200) throw errorDeRespuesta(status, data);
     return data as unknown as EstadoPortal;
   },
   async acceder(folio, codigo) {
-    const { status, data } = await llamar('POST', '/api/portal/acceso', { folio, codigo });
+    const { status, data } = await llamar('POST', rutaPortal() + '/acceso', { folio, codigo });
     if (status !== 200) throw errorDeRespuesta(status, data);
   },
   async cerrar() {
-    await llamar('DELETE', '/api/portal/sesion').catch(() => undefined);
+    await llamar('DELETE', rutaPortal() + '/sesion').catch(() => undefined);
   },
   async vista() {
-    const { status, data } = await llamar('GET', '/api/portal/vista');
+    const { status, data } = await llamar('GET', rutaPortal() + '/vista');
     if (status !== 200) throw errorDeRespuesta(status, data);
     return data as unknown as VistaPortalConEstado;
   },
@@ -61,7 +63,7 @@ export const portalHttp: PortalRepositorio = {
   subir(documentoId, archivo, onProgreso) {
     return new Promise<ResultadoSubida>((resolver, rechazar) => {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', `/api/portal/documentos/${encodeURIComponent(documentoId)}`);
+      xhr.open('POST', `${rutaPortal()}/documentos/${encodeURIComponent(documentoId)}`);
       xhr.withCredentials = true;
       for (const [k, v] of Object.entries(CSRF)) xhr.setRequestHeader(k, v);
       xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgreso?.(Math.round((e.loaded / e.total) * 100)); };

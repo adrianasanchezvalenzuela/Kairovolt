@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ProgressBar } from '@/components/ui/ProgressBar';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { useVistaPortal } from '@/hooks/PortalContexto';
+import { ArrowRight, Bell, Check, ClipboardList, FolderOpen, History, MapPin, Waypoints, Zap } from 'lucide-react';
+import { EnergiaPortal, EnlacePortal, IlustracionExpediente } from '@/components/portal/DisenoPortal';
 import { datosPortal } from '@/infrastructure/portal-http';
 import { pasosParticipantes } from '@/application/participantes';
+import { useVistaPortal } from '@/hooks/PortalContexto';
 
-const QUIEN = { cliente: 'Te toca a ti', idc: 'Lo hace IDC', cfe: 'En manos de CFE' } as const;
-
-/** Pantalla principal: cuánto llevas, en qué etapa estás y qué sigue. */
 export function PortalInicio() {
   const v = useVistaPortal();
-  const paso = v.siguientePaso;
   const [captura, setCaptura] = useState<string | null>(null);
   const [confirmarDatos, setConfirmarDatos] = useState(false);
   useEffect(() => {
@@ -19,84 +14,71 @@ export function PortalInicio() {
     let vigente = true;
     void datosPortal().then((r) => {
       if (!vigente) return;
-      setCaptura(r?.confirmado ? 'Confirmada' : r
-        ? `${pasosParticipantes(r.datos).filter(Boolean).length} de 2 secciones de captura completas` : 'Sin iniciar');
+      setCaptura(r?.confirmado ? 'Confirmada' : r ? pasosParticipantes(r.datos).filter(Boolean).length + ' de 2 secciones' : 'Sin iniciar');
       setConfirmarDatos(!r?.confirmado);
-    }).catch(() => { if (vigente) setCaptura('No se pudo consultar'); });
+    }).catch(() => { if (vigente) setCaptura('Sin datos disponibles'); });
     return () => { vigente = false; };
   }, [v.folio, v.permisos.editarParticipantes]);
-  const aceptados = v.documentos?.filter((d) => d.estado === 'aceptado').length ?? 0;
-  const porRevisar = v.documentos?.filter((d) => d.estado === 'en_revision').length ?? 0;
-  const correcciones = v.documentos?.filter((d) => d.estado === 'rechazado').length ?? 0;
-  const porEntregar = v.documentos?.filter((d) => d.puedeSubir && d.estado !== 'rechazado').length ?? 0;
-  const fecha = paso.fechaEstimada ? new Date(`${paso.fechaEstimada}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' }) : null;
 
-  return (
-    <>
-      <section className="kvp-hero" aria-label="Avance de tu trámite">
-        <p className="kvp-hero__nombre">{v.nombre}</p>
-        <p className="kvp-hero__sub">{v.ubicacion}</p>
-        <p className="kvp-hero__sub">Avance operativo · {v.etapas.filter((e) => e.tono === 'ok').length} de {v.etapas.length} etapas completadas</p>
-        <span className="kvp-hero__etapa">{v.etapaActual ? `Etapa actual: ${v.etapaActual.nombre}` : 'Trámite completo'}</span>
+  const documentos = v.documentos;
+  const aceptados = documentos?.filter((d) => d.estado === 'aceptado').length;
+  const revision = documentos?.filter((d) => d.estado === 'en_revision' || d.estado === 'recibido').length;
+  const correcciones = documentos?.filter((d) => d.estado === 'rechazado').length ?? 0;
+  const pendientes = documentos?.filter((d) => ['pendiente', 'rechazado', 'vencido'].includes(d.estado)).length;
+  const paso = v.siguientePaso;
+  const actual = v.etapas.find((etapa) => etapa.actual);
+  const ultima = v.notificaciones[0] ?? v.historial[0];
+  const accion = correcciones ? { titulo: 'Atiende las correcciones de IDC', texto: paso.detalle, ruta: '/portal/documentos', boton: 'Ver correcciones' }
+    : confirmarDatos ? { titulo: 'Completa los datos de tu expediente', texto: 'Revisa y confirma la información del titular y de quien tramita.', ruta: '/portal/mis-datos', boton: 'Ir a Mis datos' }
+    : paso.responsable === 'cliente'
+      ? { titulo: 'Preparemos tus documentos.', texto: paso.detalle, ruta: '/portal/documentos', boton: 'Continuar mi expediente' }
+      : { titulo: revision ? 'IDC está revisando tus envíos.' : paso.titulo, texto: paso.detalle,
+        ruta: revision ? '/portal/documentos' : '/portal/avisos', boton: revision ? 'Consultar mis envíos' : 'Consultar avisos' };
+  const avisos = v.notificaciones.filter((n) => n.tipo === 'accion').length;
+
+  return <>
+    <div className="kv-cliente-principal">
+      <section className="kv-cliente-proyecto" aria-label="Avance operativo">
+        <EnergiaPortal className="kv-cliente-proyecto__energia" />
+        <div className="kv-cliente-proyecto__texto">
+          <div className="kv-cliente-proyecto__folio"><Zap size={15} aria-hidden="true" /> {v.folio}</div>
+          <h1>Más cerca de tu próxima conexión.</h1>
+          <p>Nosotros te guiamos. Tú avanzas a tu ritmo.</p>
+          <h2>{v.nombre}</h2>
+          {v.ubicacion && <p><MapPin size={16} aria-hidden="true" /> {v.ubicacion}</p>}
+        </div>
       </section>
-
-      <section aria-label="Preparación de tu expediente">
-        <dl className="kvp-resumen">
-          {v.permisos.editarParticipantes && <div><dt>Captura de datos</dt><dd>{captura ?? 'Consultando…'}</dd></div>}
-          <div><dt>Preparación documental</dt><dd>{v.documentos?.length ? `${porEntregar} por entregar · ${correcciones} por corregir` : 'Sin requisitos disponibles'}</dd></div>
-          <div><dt>Revisión IDC</dt><dd>{v.documentos?.length ? `${aceptados} aceptados · ${porRevisar} por revisar` : 'Sin documentos evaluables'}</dd></div>
-        </dl>
+      <section className={'kv-cliente-accion' + (correcciones ? ' kv-cliente-accion--urgente' : '')}>
+        <IlustracionExpediente variante={confirmarDatos && !correcciones ? 'identidad' : revision && !correcciones ? 'validacion' : 'documentos'} />
+        <span className="kv-cliente-etiqueta">Tu próxima acción</span>
+        <h2>{accion.titulo}</h2><p>{accion.texto}</p>
+        {!correcciones && !confirmarDatos && !revision && paso.fechaEstimada &&
+          <p>Fecha estimada <time dateTime={paso.fechaEstimada}>{paso.fechaEstimada}</time></p>}
+        <EnlacePortal to={accion.ruta}>{accion.boton}</EnlacePortal>
       </section>
-
-      <section className={`kvp-tarjeta kvp-paso kvp-paso--${paso.responsable}`} style={{ marginTop: 14 }} aria-labelledby="paso-titulo">
-        <p className="kvp-paso__quien">Siguiente paso · {QUIEN[paso.responsable]}</p>
-        <p id="paso-titulo" className="kvp-paso__titulo">{correcciones ? 'Atiende las correcciones de IDC' : confirmarDatos ? 'Completa los datos de tu expediente' : paso.titulo}</p>
-        {correcciones > 0 || confirmarDatos
-          ? <Link to={correcciones ? '/portal/documentos' : '/portal/mis-datos'} className="kvp-boton">{correcciones ? 'Ver correcciones' : 'Ir a Mis datos'}</Link>
-          : <>
-            <p style={{ margin: 0 }}>{paso.detalle}</p>
-            {fecha && <p className="kvp-paso__fecha">Fecha estimada: {fecha}</p>}
-            {paso.responsable === 'cliente' && <Link to="/portal/documentos" className="kvp-boton" style={{ marginTop: 14 }}>Ir a mis documentos</Link>}
-          </>}
-      </section>
-
-      <h2>Tu camino</h2>
-      <ol className="kvp-etapas" aria-label="Etapas del trámite">
-        {v.etapas.map((e, i) => (
-          <li key={e.id} className={`kvp-etapa${e.tono === 'ok' ? ' kvp-etapa--ok' : ''}${e.actual ? ' kvp-etapa--actual' : ''}${e.tono === 'alerta' ? ' kvp-etapa--alerta' : ''}`} aria-current={e.actual ? 'step' : undefined}>
-            <span className="kvp-etapa__punto" aria-hidden="true">{e.tono === 'ok' ? '✓' : i + 1}</span>
-            <div>
-              <div className="kvp-etapa__titulo">{e.nombre} <StatusBadge tono={e.tono} variante="suave">{e.estado}</StatusBadge></div>
-              <p className="kvp-etapa__texto">{e.descripcion}</p>
-              {e.porcentaje !== null && e.tono !== 'ok' && <ProgressBar valor={e.porcentaje} total={100} etiqueta={`Avance de ${e.nombre}`} texto={`${e.porcentaje}%`} />}
-            </div>
-          </li>
-        ))}
-      </ol>
-
-      {v.documentos && v.documentos.some((d) => ['pendiente', 'rechazado', 'vencido'].includes(d.estado)) && <section aria-labelledby="inicio-pendientes">
-        <h2 id="inicio-pendientes">Pendientes documentales</h2>
-        <ul className="kvp-avisos">{v.documentos.filter((d) => ['pendiente', 'rechazado', 'vencido'].includes(d.estado)).slice(0, 3).map((d) => <li className="kvp-aviso kvp-aviso--accion" key={d.id}>
-          <span className="kvp-aviso__icono" aria-hidden="true">!</span><div><p className="kvp-aviso__titulo">{d.nombre}</p><p className="kvp-doc__texto">{d.detalle ?? 'Revisa la guía documental y prepara este documento.'}</p></div>
-        </li>)}</ul>
-        <Link to="/portal/documentos" className="kvp-enlace-accion">Revisar documentos →</Link>
-      </section>}
-
-      {v.historial.length > 0 && <section aria-labelledby="inicio-historial">
-        <h2 id="inicio-historial">Actividad reciente</h2>
-        <ol className="kvp-actividad">{v.historial.slice(0, 3).map((e) => <li key={e.id}><time>{new Date(`${e.fecha}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}</time><span>{e.titulo}</span></li>)}</ol>
-      </section>}
-
-      {v.recepciones.length > 0 && <section aria-label="Documentos recientes">
-        <h2>Documentos recientes</h2>
-        <ul>{v.recepciones.slice(0, 3).map((r) => <li key={r.recibo}>{r.documento} · {r.recibo}</li>)}</ul>
-        <Link to="/portal/documentos">Ver todos los envíos</Link>
-      </section>}
-      {v.notificaciones.length > 0 && <section aria-label="Avisos recientes">
-        <h2>Avisos</h2>
-        <ul>{v.notificaciones.slice(0, 3).map((n) => <li key={n.id}>{n.titulo}</li>)}</ul>
-        <Link to="/portal/avisos">Ver avisos</Link>
-      </section>}
-    </>
-  );
+    </div>
+    <section className="kv-cliente-seccion"><h2>Tu espacio</h2>
+      <div className="kv-cliente-espacio">
+        {v.permisos.editarParticipantes && <article><ClipboardList size={20} aria-hidden="true" /><h3><EnlacePortal to="/portal/mis-datos" secundario>Mis datos</EnlacePortal></h3><p>{captura ?? 'Consultando…'}</p></article>}
+        <article><FolderOpen size={20} aria-hidden="true" /><h3><EnlacePortal to="/portal/documentos" secundario>Mis documentos</EnlacePortal></h3>
+          <p>{documentos ? `${pendientes} pendientes · ${revision} en revisión · ${aceptados} aceptados` : 'Documentos no disponibles'}</p></article>
+        <article><Waypoints size={20} aria-hidden="true" /><h3><a href="#recorrido" className="kv-cliente-enlace">Mi recorrido <ArrowRight size={15} aria-hidden="true" /></a></h3><p>{v.etapaActual?.nombre ?? 'Trámite completo'}</p></article>
+        <article><Bell size={20} aria-hidden="true" /><h3><EnlacePortal to="/portal/avisos" secundario>Mis avisos</EnlacePortal></h3><p>{avisos ? avisos + ' requieren atención' : 'Sin acciones pendientes'}</p></article>
+      </div>
+    </section>
+    <section id="recorrido" className="kv-cliente-seccion kv-cliente-camino">
+      <div className="kv-cliente-linea"><h2>Tu recorrido de interconexión</h2><span>{v.etapas.filter((e) => e.tono === 'ok').length} de {v.etapas.length} etapas completadas</span></div>
+      <div className="kv-cliente-segmentos" aria-hidden="true">{v.etapas.map((e) => <i key={e.id} data-estado={e.tono === 'ok' ? 'completa' : e.actual ? 'actual' : 'pendiente'} />)}</div>
+      <p><strong>{actual?.nombre ?? 'Trámite completo'}</strong>{actual && ' · ' + actual.descripcion}</p>
+      <details><summary>Consultar el recorrido completo</summary>
+      <ol>{v.etapas.map((e, i) => <li key={e.id} aria-current={e.actual ? 'step' : undefined} data-estado={e.tono === 'ok' ? 'completa' : e.actual ? 'actual' : 'pendiente'}>
+        <span className="kv-cliente-camino__punto">{e.tono === 'ok' ? <Check size={17} aria-hidden="true" /> : i + 1}</span>
+        <div><strong>{e.nombre}</strong><small>{e.estado}</small><p>{e.descripcion}</p></div>
+      </li>)}</ol></details>
+    </section>
+    <section className="kv-cliente-seccion kv-cliente-ultima">
+      <div className="kv-cliente-linea"><h2><History size={20} aria-hidden="true" /> Última actualización</h2><EnlacePortal to="/portal/historial" secundario>Historial completo</EnlacePortal></div>
+      {ultima ? <p>{ultima.titulo} <time dateTime={ultima.fecha}>{ultima.fecha.slice(0, 10)}</time></p> : <p>Aún no hay actualizaciones.</p>}
+    </section>
+  </>;
 }
