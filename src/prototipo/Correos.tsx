@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Mail, Users, Zap } from 'lucide-react';
+import { ArrowRight, Mail, Users } from 'lucide-react';
 import { CLIENTE } from './datos';
 import { acciones, useProto } from './store';
 import { CintaDemo, fechaCorta } from './ui';
@@ -25,7 +25,7 @@ export function Correos() {
         {!c ? <div className="kp-correos__vacio"><Mail size={40} aria-hidden /><p>Selecciona un correo para leerlo.</p><Link className="kp-boton kp-boton--suave" to="/prototipo/idc"><Users size={16} aria-hidden /> Ir al panel IDC</Link></div> : <>
           <div className="kp-correos__meta"><h2>{c.asunto}</h2><p><b>De</b> {c.de}</p><p><b>Para</b> {c.para}</p><p><b>Fecha</b> {fechaCorta(c.fecha)}</p></div>
           <article className="kp-mail">
-            <div className="kp-mail__cab"><span><Zap size={16} aria-hidden /></span><strong>KairóVolt</strong></div>
+            <div className="kp-mail__cab"><img src="/brand/kairovolt-logo.svg" alt="" width="30" height="30" style={{ borderRadius: 9 }} /><strong>KairóVolt</strong></div>
             <div className="kp-mail__cuerpo">{c.cuerpo.map((p, i) => <p key={i}>{p}</p>)}
               {c.cta && <Link className="kp-boton kp-boton--grande" to="/prototipo/cliente/documentos">{c.cta} <ArrowRight size={16} aria-hidden /></Link>}
             </div>

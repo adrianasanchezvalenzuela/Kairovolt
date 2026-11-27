@@ -77,6 +77,8 @@ export interface Notificacion {
   documentoId?: string;
   citaId?: string;
   eventoTipo?: string;
+  /** Solo demostración: contenido del correo simulado (no se envía nada). */
+  correoDemo?: { asunto: string; para: string; parrafos: string[]; boton: string };
   citaResumen?: {
     referencia: string;
     fecha: string;

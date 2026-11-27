@@ -41,6 +41,8 @@ import { usePortal, useVistaPortal } from '@/hooks/PortalContexto';
 import { guardarPreparacionPortal, listarPreparacionPortal } from '@/infrastructure/portal-http';
 import { CartaDemoPortal } from '@/components/portal/CartaDemoPortal';
 import { GuiaSolicitud } from '@/components/portal/GuiaSolicitud';
+import { DocumentosPorResponsable } from '@/components/portal/DocumentosPorResponsable';
+import { esFolioDocumentalDemo } from '@/demo/expediente-demo';
 import { GuiaVisualDocumento } from '@/components/portal/GuiasVisuales';
 import { VistaArchivoPortal } from '@/components/portal/VistaArchivoPortal';
 import { demosPortal } from '@/data/demos-portal';
@@ -78,7 +80,13 @@ function inferirCategoria(id: string, g?: GuiaDocumentoCliente): CategoriaPortal
   return 'identificacion_datos';
 }
 
+/** Demos documentales (005 y 006): documentos agrupados por responsable con el estado mock compartido con el panel IDC. */
 export function PortalDocumentos() {
+  const v = useVistaPortal();
+  return v.demo && esFolioDocumentalDemo(v.folio) ? <DocumentosPorResponsable /> : <PortalDocumentosBase />;
+}
+
+function PortalDocumentosBase() {
   const v = useVistaPortal();
   const { subir } = usePortal();
   const [filtro, setFiltro] = useState<(typeof filtros)[number]>('Todos');

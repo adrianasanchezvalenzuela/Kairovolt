@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, SunMedium, Zap } from 'lucide-react';
+import { ArrowUpRight, SunMedium } from 'lucide-react';
 
 export function MarcaPortal() {
   return <div className="kv-cliente-marca">
-    <span className="kv-cliente-marca__sello"><Zap size={20} aria-hidden="true" /></span>
+    <img className="kv-cliente-marca__logo" src="/brand/kairovolt-logo.svg" alt="" width="42" height="42" />
     <div><strong>KairóVolt</strong><small>IDC Sistemas Eléctricos</small></div>
   </div>;
 }

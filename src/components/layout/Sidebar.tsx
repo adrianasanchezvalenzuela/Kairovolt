@@ -40,8 +40,8 @@ export function Sidebar({ marca, subtitulo, inicio = '/', secciones, abierto = f
       {abierto && onCerrar && <button type="button" className="kv-sidebar__velo" onClick={onCerrar} aria-label="Cerrar menú" tabIndex={-1} />}
       <aside id={id} className={cx('kv-sidebar', abierto && 'kv-sidebar--abierto')}>
         <Link to={inicio} className="kv-sidebar__marca" onClick={onCerrar}>
-          {marca}
-          {subtitulo && <small>{subtitulo}</small>}
+          <img className="kv-sidebar__logo" src="/brand/kairovolt-logo.svg" alt="" width="36" height="36" />
+          <span>{marca}{subtitulo && <small>{subtitulo}</small>}</span>
         </Link>
         <nav aria-label="Navegación principal">
           {secciones.map((s, i) => (

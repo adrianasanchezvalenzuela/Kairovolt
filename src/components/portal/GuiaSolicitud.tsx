@@ -32,15 +32,10 @@ function Lightbox({ src, titulo, onClose }: { src: string; titulo: string; onClo
 type CampoDom = keyof DomicilioSolicitud;
 const CAMPOS_DOM: [CampoDom, string][] = [['calle', 'Calle'], ['numExt', 'Número exterior'], ['numInt', 'Número interior'], ['cp', 'Código postal'], ['colonia', 'Colonia'], ['municipio', 'Municipio'], ['estado', 'Estado'], ['telefono', 'Teléfono'], ['correo', 'Correo electrónico']];
 
-export function GuiaSolicitud() {
+/** Datos de la solicitud: Mis datos (si están confirmados) + datos técnicos ficticios fijos. */
+export function useDatosSolicitudDemo() {
   const [datos, setDatos] = useState<DatosSolicitud>(() => solicitudInicial());
-  const [revisando, setRevisando] = useState(false);
-  const [ampliada, setAmpliada] = useState<{ src: string; titulo: string } | null>(null);
-  const [error, setError] = useState('');
-  const [ok, setOk] = useState(false);
-  const [generando, setGenerando] = useState(false);
   const [desdeMisDatos, setDesdeMisDatos] = useState(false);
-
   useEffect(() => {
     let vigente = true;
     void datosPortal().then((v) => {
@@ -52,7 +47,16 @@ export function GuiaSolicitud() {
     }).catch(() => undefined);
     return () => { vigente = false; };
   }, []);
+  return { datos, setDatos, desdeMisDatos };
+}
 
+export function GuiaSolicitud({ soloReferencias = false }: { soloReferencias?: boolean }) {
+  const { datos, setDatos, desdeMisDatos } = useDatosSolicitudDemo();
+  const [revisando, setRevisando] = useState(false);
+  const [ampliada, setAmpliada] = useState<{ src: string; titulo: string } | null>(null);
+  const [error, setError] = useState('');
+  const [ok, setOk] = useState(false);
+  const [generando, setGenerando] = useState(false);
   const editarDom = (quien: 'solicitante' | 'contacto', c: CampoDom, valor: string) =>
     setDatos((d) => ({ ...d, [quien]: { ...d[quien], [c]: valor } }));
 
@@ -64,13 +68,13 @@ export function GuiaSolicitud() {
   }
 
   return <section className="kv-gs" aria-labelledby="gs-titulo">
-    <header className="kv-gs__cab">
+    {!soloReferencias && <header className="kv-gs__cab">
       <span className="kv-cliente-etiqueta">Guía visual · Formato de solicitud para interconexión</span>
       <h2 id="gs-titulo">Tu solicitud de interconexión.</h2>
       <p>Prepara el documento con el que iniciarás formalmente tu trámite.</p>
-    </header>
+    </header>}
 
-    <div className="kv-gs__destacada">
+    {!soloReferencias && <div className="kv-gs__destacada">
       <span className="kv-gs__chispa"><Sparkles size={26} aria-hidden="true" /></span>
       <div>
         <h3>No empieces desde cero.</h3>
@@ -80,9 +84,9 @@ export function GuiaSolicitud() {
       <button type="button" className="kvp-boton" onClick={() => setRevisando((v) => !v)} aria-expanded={revisando}>
         <FilePenLine size={17} aria-hidden="true" /> {revisando ? 'Ocultar revisión' : 'Generar mi solicitud'}
       </button>
-    </div>
+    </div>}
 
-    {revisando && <div className="kv-gs__revision">
+    {!soloReferencias && revisando && <div className="kv-gs__revision">
       <h3>Revisa tus datos antes de descargar</h3>
       <p className="kv-suave">Los datos técnicos son ficticios y fijos para esta demostración. Número de solicitud, firmas y sello quedan en blanco.</p>
       <label className="kv-gs__campo">Nombre, denominación o razón social

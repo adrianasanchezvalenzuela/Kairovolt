@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Bell, CalendarDays, ClipboardCheck, Download, FolderOpen, History, House, Inbox, Mail, RotateCcw, Users, X, Zap } from 'lucide-react';
+import { Bell, CalendarDays, ClipboardCheck, Download, FolderOpen, History, House, Inbox, Mail, RotateCcw, Users, X } from 'lucide-react';
 import { CLIENTE, type Documento, type EstadoDoc } from './datos';
 import { acciones, useProto } from './store';
 import { descargarPdfDemo, urlPdfDemo } from './pdf';
@@ -22,7 +22,7 @@ export function Pastilla({ estado }: { estado: EstadoDoc }) {
 
 export function Marca({ claro }: { claro?: boolean }) {
   return <Link to="/prototipo" className={'kp-marca' + (claro ? ' kp-marca--claro' : '')}>
-    <span className="kp-marca__sello"><Zap size={18} aria-hidden /></span>
+    <img className="kp-marca__logo" src="/brand/kairovolt-logo.svg" alt="" width="40" height="40" />
     <span><strong>KairóVolt</strong><small>IDC Sistemas Eléctricos</small></span>
   </Link>;
 }

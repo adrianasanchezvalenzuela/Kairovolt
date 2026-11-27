@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ArrowRight, CalendarCheck2, ClipboardList, FolderOpen } from 'lucide-react';
+import { ArrowRight, CalendarCheck2, ClipboardList, FolderOpen, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { EnergiaPortal, MarcaPortal } from '@/components/portal/DisenoPortal';
 import { AlertPanel } from '@/components/ui/AlertPanel';
 import { demosPortal } from '@/data/demos-portal';
@@ -33,6 +34,7 @@ export function PortalDemos() {
       </div>
       <EnergiaPortal />
     </div>
+    <p className="kv-cliente-galeria__idc"><Users size={18} aria-hidden="true" /> ¿Quieres ver el otro lado? <Link to="/idc/KV-2026-005">Abrir el panel IDC de demostración</Link> y revisar, cargar o corregir documentos.</p>
     {error && <AlertPanel tono="error">{error}</AlertPanel>}
     <div className="kv-cliente-galeria__casos kv-cliente-galeria__casos--tres">{demosPortal.map(({ folio, codigo, titulo, etapa, descripcion }, i) => {
       const Icono = i === 0 ? ClipboardList : i === 1 ? FolderOpen : CalendarCheck2;

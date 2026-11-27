@@ -39,6 +39,7 @@ import {
   type TipoVisita,
 } from '@/domain/citas/cita';
 import { usePortal, useVistaPortal } from '@/hooks/PortalContexto';
+import { elegibilidadConDemo, GRUPO_POR_DOCUMENTO } from '@/demo/expediente-demo';
 import {
   cancelarCitaPortal,
   disponibilidadVisitaPortal,
@@ -294,8 +295,10 @@ export function PortalVisita() {
   }, [resumen, marcados]);
 
   const itemsLlevar = checklistConEstado.filter(
-    (i) => i.categoriaEntrega !== 'solo_digital',
+    (i) => i.categoriaEntrega !== 'solo_digital' && !(v.demo && GRUPO_POR_DOCUMENTO[i.documentoId] === 'idc'),
   );
+  // Documentos técnicos que IDC ya tiene preparados físicamente (el cliente no los imprime).
+  const itemsIdc = checklistConEstado.filter((i) => v.demo && GRUPO_POR_DOCUMENTO[i.documentoId] === 'idc');
   const preparadosLlevar = itemsLlevar.filter((i) => i.preparadoParaVisita).length;
 
   async function alternarItemChecklist(docId: string) {
@@ -440,7 +443,8 @@ export function PortalVisita() {
     return <AlertPanel tono="error">{error || 'No pudimos cargar tu visita.'}</AlertPanel>;
   }
 
-  const { elegibilidad, config, citaActiva } = resumen;
+  const { config, citaActiva } = resumen;
+  const elegibilidad = v.demo ? elegibilidadConDemo(resumen.elegibilidad, v.folio) : resumen.elegibilidad;
   const mostrarCitaExistente = !!citaActiva && !forzarNueva;
   const esEntregaBloqueada = tipoVisita === 'entrega_expediente' && !elegibilidad.permitida;
   const diaSeleccionado = dias.find((d) => d.fecha === fecha);
@@ -457,7 +461,7 @@ export function PortalVisita() {
           <span className="kv-carpeta__ico"><FolderCheck size={26} aria-hidden="true" /></span>
           <div>
             <h2>Tu carpeta física</h2>
-            <p><strong>{preparadosLlevar} de {total}</strong> documentos preparados{guardandoLista ? ' · guardando…' : ''}</p>
+            <p><strong>{preparadosLlevar} de {total}</strong> documentos {v.demo ? "que llevas" : "preparados"}{guardandoLista ? ' · guardando…' : ''}</p>
           </div>
           {pct === 100 && <span className="kv-carpeta__listo"><PartyPopper size={16} aria-hidden="true" /> ¡Carpeta completa!</span>}
         </div>
@@ -465,7 +469,7 @@ export function PortalVisita() {
           <i style={{ width: `${pct}%` }} />
         </div>
         <ol className="kv-carpeta__lista">
-          {checklistConEstado.map((item, n) => (
+          {itemsLlevar.map((item, n) => (
             <li key={item.documentoId} data-preparado={item.preparadoParaVisita || undefined}>
               <label>
                 <input type="checkbox" checked={item.preparadoParaVisita} onChange={() => void alternarItemChecklist(item.documentoId)} />
@@ -479,6 +483,13 @@ export function PortalVisita() {
             </li>
           ))}
         </ol>
+        {itemsIdc.length > 0 && (
+          <div className="kv-carpeta__idc">
+            <h3><ShieldCheck size={17} aria-hidden="true" /> IDC ya tiene preparados {itemsIdc.length} documentos</h3>
+            <p>Son los documentos técnicos de tu proyecto. No necesitas imprimirlos ni llevarlos.</p>
+            <ul>{itemsIdc.map((i) => <li key={i.documentoId}><Check size={15} aria-hidden="true" /> {i.nombre}</li>)}</ul>
+          </div>
+        )}
         <p className="kv-carpeta__nota">Tu lista es solo un apoyo personal: se guarda en esta demostración y es independiente de la revisión digital de IDC.</p>
         <div className="kv-carpeta__acciones">
           <button type="button" className="kvp-boton kvp-boton--suave" onClick={() => window.print()}>

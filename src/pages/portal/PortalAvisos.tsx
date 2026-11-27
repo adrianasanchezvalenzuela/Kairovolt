@@ -27,7 +27,7 @@ export function PortalAvisos() {
       </PortadaPortal>
 
       {demo && (
-        <details className="kv-cliente-superficie" open={notificaciones.some((n) => n.citaId)}>
+        <details className="kv-cliente-superficie" open={notificaciones.some((n) => n.citaId || n.id.startsWith('n:rechazo:'))}>
           <summary><Mail size={16} aria-hidden="true" style={{ verticalAlign: 'middle', marginRight: 6 }} /> Correos simulados ({correosSimulados.length})</summary>
           <p className="kv-suave" style={{ marginTop: 6 }}>
             Estos mensajes se visualizan únicamente en el modo demostración. No se envían correos reales desde los demos ni se adjuntan archivos personales o códigos de acceso.
@@ -39,10 +39,10 @@ export function PortalAvisos() {
               const esCita = !!n.citaId;
               const esConfirmada = n.eventoTipo === 'cita_confirmada';
               const esRechazo = n.id.startsWith('n:rechazo:');
-              const asunto = esConfirmada
+              const asunto = n.correoDemo ? n.correoDemo.asunto : esConfirmada
                 ? 'KairóVolt | Tu visita a IDC está confirmada.'
                 : `KairóVolt | ${n.titulo}`;
-              const eventoLabel = esConfirmada
+              const eventoLabel = n.correoDemo ? (esRechazo ? 'Corrección solicitada' : 'Actualización documental') : esConfirmada
                 ? 'Cita confirmada'
                 : n.eventoTipo === 'cita_propuesta_horario'
                   ? 'Propuesta de nuevo horario'
@@ -57,17 +57,24 @@ export function PortalAvisos() {
                           : 'Actualización documental';
 
               return (
-                <details className="kv-doc-correo" key={n.id} open={esConfirmada}>
+                <details className="kv-doc-correo" key={n.id} open={esConfirmada || esRechazo}>
                   <summary>{asunto}</summary>
                   <dl>
-                    <dt>Destinatario</dt><dd>cliente-demo@example.invalid</dd>
+                    <dt>Destinatario</dt><dd>{n.correoDemo?.para ?? 'cliente-demo@example.invalid'}</dd>
                     <dt>Fecha</dt><dd>{n.fecha.slice(0, 10)}</dd>
                     <dt>Evento</dt><dd>{eventoLabel}</dd>
                     <dt>Estado</dt><dd>Simulado (sin envío externo)</dd>
                   </dl>
                   <div className="kv-doc-correo__contenido">
                     <header>KairóVolt · IDC Sistemas Eléctricos</header>
-                    {esConfirmada && n.citaResumen ? (
+                    {n.correoDemo ? (
+                      <>
+                        <h3>{n.titulo}</h3>
+                        {n.correoDemo.parrafos.map((p) => <p key={p}>{p}</p>)}
+                        <EnlacePortal to={'/portal/documentos?documento=' + encodeURIComponent(n.documentoId ?? '')}>{n.correoDemo.boton}</EnlacePortal>
+                        <p className="kv-suave">Equipo IDC — KairóVolt. Mensaje de demostración · Sin validez legal.</p>
+                      </>
+                    ) : esConfirmada && n.citaResumen ? (
                       <>
                         <h3>¡Nos vemos pronto!</h3>
                         <p>Tu cita para la entrega física de tu expediente ha sido confirmada.</p>

@@ -12,7 +12,7 @@ export const demosPortal = [
     codigo: 'DEMO-KV26-005P-ORTL',
     titulo: 'Preparación y revisión documental',
     etapa: 'Media tensión · 11 documentos',
-    descripcion: 'Explora los 11 documentos con guías visuales, vista previa, Carta Poder, correcciones y carga de archivos.',
+    descripcion: 'Explora los 11 documentos en tres grupos: los tuyos, la solicitud que armamos juntos y los técnicos que prepara IDC. Incluye una corrección de Carta Poder.',
   },
   {
     folio: 'KV-2026-006',

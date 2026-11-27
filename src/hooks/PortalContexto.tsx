@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Outlet } from 'react-router-dom';
 import { ErrorPortal, type ResultadoSubida, type VistaPortalConEstado } from '@/application/portal-acceso';
 import { portalRepositorio } from '@/infrastructure';
+import { aplicarExpedienteDemo, esFolioDocumentalDemo, leerExpedienteDemo, useVersionExpedienteDemo } from '@/demo/expediente-demo';
 
 export type FasePortal =
   | { tipo: 'cargando' }
@@ -21,7 +22,14 @@ const Contexto = createContext<ValorPortal | null>(null);
 
 /** Estado del portal del cliente: su sesión (cookie HttpOnly, la gestiona el backend) y la proyección pública de su proyecto. */
 export function PortalProveedor({ children }: { children?: ReactNode }) {
-  const [fase, setFase] = useState<FasePortal>({ tipo: 'cargando' });
+  const [faseServidor, setFase] = useState<FasePortal>({ tipo: 'cargando' });
+  const versionDemo = useVersionExpedienteDemo();
+  // Demos documentales: la vista del servidor se completa con el estado mock compartido con el panel IDC.
+  const fase = useMemo<FasePortal>(() => {
+    if (faseServidor.tipo !== 'listo' || !faseServidor.vista.demo || !esFolioDocumentalDemo(faseServidor.vista.folio)) return faseServidor;
+    return { tipo: 'listo', vista: { ...faseServidor.vista, ...aplicarExpedienteDemo(faseServidor.vista, leerExpedienteDemo(faseServidor.vista.folio)) } };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [faseServidor, versionDemo]);
 
   const cargar = useCallback(async () => {
     try {

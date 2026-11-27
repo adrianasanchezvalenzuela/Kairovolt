@@ -35,13 +35,14 @@ const PortalDocumentos = lazy(() => import('@/pages/portal/PortalDocumentos').th
 const PortalVisita = lazy(() => import('@/pages/portal/PortalVisita').then((m) => ({ default: m.PortalVisita })));
 const Configuracion = lazy(() => import('@/pages/Configuracion').then((m) => ({ default: m.Configuracion })));
 const PortalDemos = import.meta.env.DEV ? lazy(() => import('@/pages/portal/PortalDemos').then((m) => ({ default: m.PortalDemos }))) : null;
+const IdcDemo = import.meta.env.DEV ? lazy(() => import('@/pages/IdcDemo').then((m) => ({ default: m.IdcDemo }))) : null;
 const PortalRevisionDemo = import.meta.env.DEV ? lazy(() => import('@/pages/portal/PortalRevisionDemo').then((m) => ({ default: m.PortalRevisionDemo }))) : null;
 
 /** Galería de componentes: solo en desarrollo (no entra al build de producción). */
 const Componentes = import.meta.env.DEV ? lazy(() => import('@/pages/Componentes').then((m) => ({ default: m.Componentes }))) : null;
 
 export function App() {
-  const demoLocal = import.meta.env.DEV && window.location.pathname.startsWith('/demo/portal');
+  const demoLocal = import.meta.env.DEV && (window.location.pathname.startsWith('/demo/portal') || window.location.pathname.startsWith('/demo/idc'));
   return (
     <FuenteDatosProvider>
     <BrowserRouter basename={demoLocal ? '/demo' : '/'}>
@@ -64,6 +65,7 @@ export function App() {
           <Route path="restablecer" element={<Restablecer />} />
           <Route path="proyectos/:id" element={<ProyectoDetalle />} />
         </Route>
+        {IdcDemo && <Route path="idc/:folio?" element={<Suspense fallback={null}><IdcDemo /></Suspense>} />}
         {/* Prototipo visual: datos ficticios y estado local, aislado de Supabase y Zoho. */}
         <Route path="prototipo">
           <Route index element={<Portada />} />

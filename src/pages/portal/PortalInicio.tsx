@@ -10,6 +10,7 @@ import {
 } from '@/domain/citas/cita';
 import { pasosParticipantes } from '@/application/participantes';
 import { useVistaPortal } from '@/hooks/PortalContexto';
+import { elegibilidadConDemo } from '@/demo/expediente-demo';
 import { esCapturaDemo } from '@/data/demos-portal';
 
 export function PortalInicio() {
@@ -48,7 +49,7 @@ export function PortalInicio() {
   ).length ?? 0;
 
   const citaActiva = visita?.citaActiva && ESTADOS_CITA_ACTIVOS.includes(visita.citaActiva.estado) ? visita.citaActiva : null;
-  const expedientePreparadoVisita = visita?.elegibilidad.permitida === true;
+  const expedientePreparadoVisita = visita ? (v.demo ? elegibilidadConDemo(visita.elegibilidad, v.folio) : visita.elegibilidad).permitida === true : false;
   const paso = v.siguientePaso;
   const actual = v.etapas.find((etapa) => etapa.actual);
   const ultima = v.notificaciones[0] ?? v.historial[0];

@@ -1,0 +1,42 @@
+/* Panel IDC de demostración (reutiliza las variables .kvp del portal) */
+.kv-idc { min-height: 100svh; background: var(--pc-fondo); }
+.kv-idc__barra { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 10px clamp(16px, 3vw, 40px); background: var(--pc-navy); color: #fff; }
+.kv-idc__marca { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; }
+.kv-idc__marca img { border-radius: 10px; }
+.kv-idc__marca strong { display: block; font-size: 18px; letter-spacing: -.03em; line-height: 1.1; }
+.kv-idc__marca small { display: block; font-size: 11px; opacity: .7; }
+.kv-idc__barra nav { display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: #1a3a52; margin: 0 auto; flex-wrap: wrap; }
+.kv-idc__barra nav a { padding: 6px 14px; border-radius: 999px; color: #b8cdd3; text-decoration: none; font-weight: 650; font-size: 14px; }
+.kv-idc__barra nav a[aria-current='page'] { background: var(--pc-ambar); color: var(--pc-navy); }
+.kv-idc__ver { display: inline-flex; gap: 6px; align-items: center; color: #cfe0e4; font-size: 14px; text-decoration: none; }
+.kv-idc__contenido { max-width: 1040px; margin: 0 auto; padding: clamp(20px, 4vw, 44px) clamp(16px, 3vw, 40px) 60px; display: grid; gap: 22px; }
+.kv-idc__titulo h1 { font-size: clamp(28px, 3.6vw, 40px); letter-spacing: -.045em; font-weight: 780; margin: 4px 0; }
+.kv-idc__titulo > p { color: var(--pc-tinta-suave); max-width: 62ch; }
+.kv-idc__cifras { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; margin-top: 16px; }
+.kv-idc__cifras > div { display: grid; padding: 12px 18px; border-radius: 16px; background: var(--pc-marfil); border: 1px solid var(--pc-borde); min-width: 130px; }
+.kv-idc__cifras strong { font-size: 30px; letter-spacing: -.04em; line-height: 1; }
+.kv-idc__cifras strong small { font-size: 15px; color: var(--pc-tinta-suave); margin-left: 3px; }
+.kv-idc__cifras span { color: var(--pc-tinta-suave); font-size: 13px; }
+.kv-idc__cifras button { align-self: center; }
+.kv-idc__grupo { padding: clamp(14px, 2.4vw, 24px); border-radius: 24px; background: var(--pc-marfil); border: 1px solid var(--pc-borde); }
+.kv-idc__grupo--conjunto { background: #fdf3da; border-color: #efd28f; border-left: 6px solid var(--pc-ambar); }
+.kv-idc__grupo--idc { background: #dfe8ec; border-color: #c4d3da; }
+.kv-idc__grupo > header h2 { font-size: 21px; letter-spacing: -.03em; }
+.kv-idc__grupo > header p { color: var(--pc-tinta-suave); font-size: 14px; }
+.kv-idc__grupo ul, .kv-idc__correos ul { list-style: none; padding: 0; display: grid; margin-top: 8px; }
+.kv-idc__grupo li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid rgb(16 43 64 / 10%); }
+.kv-idc__grupo li small { display: block; color: var(--pc-tinta-suave); }
+.kv-idc__reporte { color: #8a5a0b; }
+.kv-idc__correos { padding: 18px 20px; border-radius: 20px; background: var(--pc-marfil); border: 1px dashed #b9c7cc; }
+.kv-idc__correos h2 { display: flex; gap: 8px; align-items: center; font-size: 18px; }
+.kv-idc__correos li { padding: 8px 0; border-top: 1px solid var(--pc-borde); }
+.kv-idc__correos small { display: block; color: var(--pc-tinta-suave); }
+.kv-idc__decision { display: grid; gap: 10px; padding: 16px; border-radius: 18px; background: var(--pc-fondo); }
+.kv-idc__decision label { display: grid; gap: 4px; font-weight: 650; font-size: 14px; }
+.kv-idc__decision textarea { padding: 10px 12px; border: 1.5px solid var(--pc-borde); border-radius: 12px; font-weight: 400; }
+.kv-idc__botones { display: flex; gap: 8px; flex-wrap: wrap; }
+.kv-idc__reportes { padding: 14px; border-radius: 16px; background: #fffaf0; border: 1px solid #efd28f; }
+.kv-idc__reportes ul { padding-left: 18px; }
+.kv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.kv-chips button { padding: 5px 11px; border: 1px solid var(--pc-borde); border-radius: 99px; background: #fff; font-size: 13px; cursor: pointer; }
+@media (max-width: 700px) { .kv-idc__grupo li { grid-template-columns: 1fr auto; } .kv-idc__grupo li > button { grid-column: 1 / -1; } .kv-idc__barra nav { margin: 0; } }
