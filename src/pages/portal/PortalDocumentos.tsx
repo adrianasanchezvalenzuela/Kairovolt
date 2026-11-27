@@ -40,6 +40,8 @@ import { ETAPA_CLIENTE } from '@/domain/portal/textos';
 import { usePortal, useVistaPortal } from '@/hooks/PortalContexto';
 import { guardarPreparacionPortal, listarPreparacionPortal } from '@/infrastructure/portal-http';
 import { CartaDemoPortal } from '@/components/portal/CartaDemoPortal';
+import { GuiaSolicitud } from '@/components/portal/GuiaSolicitud';
+import { GuiaVisualDocumento } from '@/components/portal/GuiasVisuales';
 import { VistaArchivoPortal } from '@/components/portal/VistaArchivoPortal';
 import { demosPortal } from '@/data/demos-portal';
 
@@ -253,7 +255,7 @@ export function PortalDocumentos() {
         : estado === 'aceptado'
           ? 'IDC completó la validación definitiva de este documento.'
           : estado === 'prevalidado'
-            ? 'Revisión digital favorable por IDC. Pendiente de entrega física si aplica.'
+            ? 'Revisión digital favorable por IDC. Falta llevarlo en tu carpeta física.'
             : estado === 'en_revision' || estado === 'recibido'
               ? 'IDC está revisando tu versión enviada.'
               : preparado
@@ -438,7 +440,9 @@ export function PortalDocumentos() {
               </>
             )}
 
-            <details className="kv-doc-bloque" open={!mostrarRevision}>
+            {abierto === 'solicitud' && <GuiaSolicitud />}
+
+            <details className="kv-doc-bloque" open={!mostrarRevision && abierto !== 'solicitud'}>
               <summary>Guía contextual de preparación y entrega</summary>
               {(documento ?? guia) && <p className="kv-suave">Etapa de referencia: {ETAPA_CLIENTE[(documento ?? guia)!.etapa].nombre}</p>}
               {instrucciones?.queEs && (
@@ -471,6 +475,7 @@ export function PortalDocumentos() {
                 </section>
               )}
 
+              {abierto && <GuiaVisualDocumento id={abierto} />}
               {instrucciones?.ilustracion === 'croquis' && <IlustracionCroquis />}
               {instrucciones?.ilustracion === 'fotos' && <IlustracionFotosSistema />}
 

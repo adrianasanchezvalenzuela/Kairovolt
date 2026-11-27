@@ -88,7 +88,7 @@ describe('dominio de citas y visita', () => {
 
     const texto = generarTextoChecklistVisita('KV-2026-006', items);
     expect(texto).toContain('[x] Carta Poder (Requiere firmas)');
-    expect(texto).toContain('INSTRUCCIONES FÍSICAS POR CONFIRMAR CON IDC');
+    expect(texto).toContain('TU CARPETA FÍSICA');
     expect(texto).not.toMatch(/RFC|INE|código de acceso/i);
   });
 

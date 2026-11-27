@@ -7,11 +7,12 @@ import {
   CalendarClock,
   CalendarDays,
   Check,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
   Download,
+  FolderCheck,
+  PartyPopper,
   FileCheck2,
   History,
   Info,
@@ -29,7 +30,6 @@ import {
   ETIQUETA_ESTADO_CITA,
   fechaHoyHermosillo,
   formatearFechaLargaHermosillo,
-  generarTextoChecklistVisita,
   INFO_TIPO_VISITA,
   ZONA_HORARIA_IDC,
   type ChecklistVisitaItem,
@@ -294,7 +294,7 @@ export function PortalVisita() {
   }, [resumen, marcados]);
 
   const itemsLlevar = checklistConEstado.filter(
-    (i) => i.categoriaEntrega === 'fisica_confirmada' || i.categoriaEntrega === 'fisica_por_confirmar',
+    (i) => i.categoriaEntrega !== 'solo_digital',
   );
   const preparadosLlevar = itemsLlevar.filter((i) => i.preparadoParaVisita).length;
 
@@ -313,15 +313,6 @@ export function PortalVisita() {
     }
   }
 
-  function descargarLista() {
-    const texto = generarTextoChecklistVisita(v.folio, checklistConEstado);
-    const url = URL.createObjectURL(new Blob([texto], { type: 'text/plain;charset=utf-8' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `lista-visita-${v.folio}.txt`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
 
   async function enviarSolicitud() {
     if (!fecha || !hora || ocupado) return;
@@ -457,115 +448,48 @@ export function PortalVisita() {
   const duracionActual = INFO_TIPO_VISITA[tipoVisita].duracionPorDefectoMin ?? config.duracionMinutos;
 
   const renderChecklistSeccion = (compacto = false) => {
-    const grupos: { clave: string; titulo: string; subtitulo: string; lista: ChecklistVisitaItem[]; tono?: string }[] = [
-      {
-        clave: 'fisica_confirmada',
-        titulo: 'Documentos para entrega física',
-        subtitulo: 'Requisitos con entrega física indicada para tu expediente.',
-        lista: checklistConEstado.filter((i) => i.categoriaEntrega === 'fisica_confirmada'),
-      },
-      {
-        clave: 'fisica_por_confirmar',
-        titulo: 'Instrucciones físicas por confirmar con IDC',
-        subtitulo: 'IDC aún no ha confirmado si se requiere copia impresa u original. Lleva respaldo o confirma antes de acudir.',
-        lista: checklistConEstado.filter((i) => i.categoriaEntrega === 'fisica_por_confirmar'),
-        tono: 'por-confirmar',
-      },
-      {
-        clave: 'ya_entregado',
-        titulo: 'Ya entregados físicamente',
-        subtitulo: 'Estos documentos ya fueron registrados como recibidos en IDC.',
-        lista: checklistConEstado.filter((i) => i.categoriaEntrega === 'ya_entregado'),
-      },
-      {
-        clave: 'solo_digital',
-        titulo: 'No requieren entrega física',
-        subtitulo: 'Se gestionan de forma digital salvo indicación posterior de IDC.',
-        lista: checklistConEstado.filter((i) => i.categoriaEntrega === 'solo_digital'),
-      },
-    ];
-
+    const total = itemsLlevar.length;
+    const pct = total ? Math.round((preparadosLlevar / total) * 100) : 0;
+    const pista = (i: ChecklistVisitaItem) => (/firm|identific/i.test(i.instruccionFisica) ? i.instruccionFisica : '');
     return (
-      <section className="kv-visita-checklist">
-        <div className="kv-cliente-linea">
+      <section className="kv-visita-checklist kv-carpeta">
+        <div className="kv-carpeta__cab">
+          <span className="kv-carpeta__ico"><FolderCheck size={26} aria-hidden="true" /></span>
           <div>
-            <h2><FileCheck2 size={20} aria-hidden="true" /> Lista personalizada para tu visita</h2>
-            <p className="kv-suave">
-              {preparadosLlevar} de {itemsLlevar.length} documentos físicos marcados como listos para llevar
-              {guardandoLista ? ' · Guardando…' : ''}
-            </p>
+            <h2>Tu carpeta física</h2>
+            <p><strong>{preparadosLlevar} de {total}</strong> documentos preparados{guardandoLista ? ' · guardando…' : ''}</p>
           </div>
-          <div className="kv-visita-checklist__botones">
-            <button type="button" className="kvp-boton kvp-boton--suave" onClick={() => window.print()}>
-              <Printer size={16} aria-hidden="true" /> Imprimir lista
-            </button>
-            <button type="button" className="kvp-boton kvp-boton--suave" onClick={descargarLista}>
-              <Download size={16} aria-hidden="true" /> Descargar lista
-            </button>
-          </div>
+          {pct === 100 && <span className="kv-carpeta__listo"><PartyPopper size={16} aria-hidden="true" /> ¡Carpeta completa!</span>}
         </div>
-
-        {itemsLlevar.length > 0 && (
-          <div className="kv-visita-progreso" aria-label="Progreso de preparación personal">
-            <div className="kvp-barra">
-              <div style={{ width: `${Math.round((preparadosLlevar / itemsLlevar.length) * 100)}%` }} />
-            </div>
-            <small>Confirmación personal de preparación · no sustituye la recepción ni validación administrativa de IDC.</small>
-          </div>
-        )}
-
-        {grupos.filter((g) => g.lista.length > 0).map((g) => (
-          <div key={g.clave} className={`kv-visita-grupo${g.tono ? ` kv-visita-grupo--${g.tono}` : ''}`}>
-            <h3>{g.titulo}</h3>
-            <p className="kv-suave">{g.subtitulo}</p>
-            <ul>
-              {g.lista.map((item) => {
-                const marcable = item.categoriaEntrega === 'fisica_confirmada' || item.categoriaEntrega === 'fisica_por_confirmar';
-                return (
-                  <li key={item.documentoId} data-preparado={item.preparadoParaVisita || undefined}>
-                    {marcable ? (
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={item.preparadoParaVisita}
-                          onChange={() => void alternarItemChecklist(item.documentoId)}
-                        />
-                        <div>
-                          <strong>{item.nombre}</strong>
-                          <p>{item.instruccionFisica}</p>
-                          <div className="kv-visita-etiquetas">
-                            {item.requiereFirmas && <StatusBadge tono="alerta" variante="suave">Requiere firmas</StatusBadge>}
-                            {item.originalOCopia && <StatusBadge tono="info" variante="suave">{item.originalOCopia}</StatusBadge>}
-                            {item.categoriaEntrega === 'fisica_por_confirmar' && (
-                              <StatusBadge tono="neutro" variante="suave">Confirmar con IDC</StatusBadge>
-                            )}
-                          </div>
-                        </div>
-                      </label>
-                    ) : (
-                      <div className="kv-visita-item-estatico">
-                        <CheckCircle2 size={18} aria-hidden="true" />
-                        <div>
-                          <strong>{item.nombre}</strong>
-                          <p>{item.instruccionFisica}</p>
-                        </div>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-
-        {!compacto && (
-          <div className="kv-visita-pie-paso">
-            <EnlacePortal to="/portal/documentos" secundario>Revisar mis documentos</EnlacePortal>
+        <div className="kv-carpeta__barra" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={preparadosLlevar} aria-label="Documentos preparados">
+          <i style={{ width: `${pct}%` }} />
+        </div>
+        <ol className="kv-carpeta__lista">
+          {checklistConEstado.map((item, n) => (
+            <li key={item.documentoId} data-preparado={item.preparadoParaVisita || undefined}>
+              <label>
+                <input type="checkbox" checked={item.preparadoParaVisita} onChange={() => void alternarItemChecklist(item.documentoId)} />
+                <span className="kv-carpeta__marca" aria-hidden="true"><Check size={15} /></span>
+                <span className="kv-carpeta__texto">
+                  <strong><em>{n + 1}</em>{item.nombre}</strong>
+                  {pista(item) && <small>{pista(item)}</small>}
+                </span>
+              </label>
+              <EnlacePortal to="/portal/documentos" secundario>Ver revisado</EnlacePortal>
+            </li>
+          ))}
+        </ol>
+        <p className="kv-carpeta__nota">Tu lista es solo un apoyo personal: se guarda en esta demostración y es independiente de la revisión digital de IDC.</p>
+        <div className="kv-carpeta__acciones">
+          <button type="button" className="kvp-boton kvp-boton--suave" onClick={() => window.print()}>
+            <Printer size={16} aria-hidden="true" /> Imprimir lista
+          </button>
+          {!compacto && (
             <button type="button" className="kvp-boton" onClick={() => { setPaso(2); setError(''); }}>
-              Elegir fecha y horario <ArrowRight size={17} aria-hidden="true" />
+              <CalendarCheck2 size={17} aria-hidden="true" /> Agendar mi visita <ArrowRight size={17} aria-hidden="true" />
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </section>
     );
   };
@@ -588,7 +512,7 @@ export function PortalVisita() {
                       ? 'Tu cita fue cancelada.'
                       : 'Recibimos tu solicitud.'
               : elegibilidad.permitida
-                ? '¡Todo en orden!'
+                ? '¡Ya casi terminamos!'
                 : 'Prepara tu expediente antes de agendar.'}
           </h1>
           <p>
@@ -599,7 +523,7 @@ export function PortalVisita() {
                   ? 'Estamos coordinando tu horario con IDC. Te avisaremos en cuanto tu visita quede confirmada.'
                   : 'Revisa los detalles actualizados y el historial de tu cita.'
               : elegibilidad.permitida
-                ? 'Terminaste la preparación de tus documentos. Revisa lo que necesitas llevar antes de salir de casa.'
+                ? 'Reúne tus documentos físicos. Nosotros ya revisamos tu expediente digital.'
                 : 'Para agendar la entrega física completa del expediente primero deben quedar resueltos tus documentos obligatorios.'}
           </p>
           <div className="kv-visita-hero__meta">

@@ -102,7 +102,8 @@ describe('demos documentales (11 requisitos MT) y flujo completo de citas', () =
     expect(resInicial.elegibilidad.etiquetaEstadoDocumental).toBe('Documentación preparada para entrega física');
     expect(resInicial.elegibilidad.totalObligatorios).toBe(11);
     expect(resInicial.checklist.some((c) => c.categoriaEntrega === 'fisica_confirmada')).toBe(true);
-    expect(resInicial.checklist.some((c) => c.categoriaEntrega === 'fisica_por_confirmar')).toBe(true);
+    expect(resInicial.checklist).toHaveLength(11);
+    expect(resInicial.checklist.every((c) => c.categoriaEntrega === 'fisica_confirmada')).toBe(true);
 
     const saveChk = await app.request(base + '/visita/checklist', {
       method: 'POST',

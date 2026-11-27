@@ -494,10 +494,7 @@ export function generarTextoChecklistVisita(folio: string, items: readonly Check
     '',
   ];
   const grupos: { titulo: string; lista: ChecklistVisitaItem[] }[] = [
-    { titulo: 'DOCUMENTOS PARA LLEVAR (ENTREGA FÍSICA)', lista: items.filter((i) => i.categoriaEntrega === 'fisica_confirmada') },
-    { titulo: 'INSTRUCCIONES FÍSICAS POR CONFIRMAR CON IDC', lista: items.filter((i) => i.categoriaEntrega === 'fisica_por_confirmar') },
-    { titulo: 'YA ENTREGADOS FÍSICAMENTE', lista: items.filter((i) => i.categoriaEntrega === 'ya_entregado') },
-    { titulo: 'NO REQUIEREN ENTREGA FÍSICA (DIGITAL)', lista: items.filter((i) => i.categoriaEntrega === 'solo_digital') },
+    { titulo: 'TU CARPETA FÍSICA', lista: items.filter((i) => i.categoriaEntrega !== 'solo_digital') },
   ];
   for (const g of grupos) {
     if (!g.lista.length) continue;
@@ -509,7 +506,6 @@ export function generarTextoChecklistVisita(folio: string, items: readonly Check
         item.originalOCopia ? item.originalOCopia : null,
       ].filter(Boolean).join(' · ');
       lineas.push(`  ${marca} ${item.nombre}${extras ? ` (${extras})` : ''}`);
-      lineas.push(`      ${item.instruccionFisica}`);
     }
     lineas.push('');
   }

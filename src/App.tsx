@@ -25,6 +25,11 @@ import { PortalInicio } from '@/pages/portal/PortalInicio';
 import { PortalMisDatos } from '@/pages/portal/PortalMisDatos';
 import { PortalVerificarCorreo } from '@/pages/portal/PortalVerificarCorreo';
 import { CargaPortal } from '@/components/portal/DisenoPortal';
+import { MarcoProto } from '@/prototipo/ui';
+import { Portada } from '@/prototipo/Portada';
+import { Correos } from '@/prototipo/Correos';
+import { Avisos, Cita, Documentos as DocsProto, Historial, Inicio } from '@/prototipo/Cliente';
+import { Agenda, Expediente, Mesa } from '@/prototipo/Idc';
 
 const PortalDocumentos = lazy(() => import('@/pages/portal/PortalDocumentos').then((m) => ({ default: m.PortalDocumentos })));
 const PortalVisita = lazy(() => import('@/pages/portal/PortalVisita').then((m) => ({ default: m.PortalVisita })));
@@ -58,6 +63,23 @@ export function App() {
           {Componentes && <Route path="componentes" element={<Suspense fallback={null}><Componentes /></Suspense>} />}
           <Route path="restablecer" element={<Restablecer />} />
           <Route path="proyectos/:id" element={<ProyectoDetalle />} />
+        </Route>
+        {/* Prototipo visual: datos ficticios y estado local, aislado de Supabase y Zoho. */}
+        <Route path="prototipo">
+          <Route index element={<Portada />} />
+          <Route path="correos" element={<Correos />} />
+          <Route path="cliente" element={<MarcoProto lado="cliente" />}>
+            <Route index element={<Inicio />} />
+            <Route path="documentos" element={<DocsProto />} />
+            <Route path="cita" element={<Cita />} />
+            <Route path="avisos" element={<Avisos />} />
+            <Route path="historial" element={<Historial />} />
+          </Route>
+          <Route path="idc" element={<MarcoProto lado="idc" />}>
+            <Route index element={<Mesa />} />
+            <Route path="expediente" element={<Expediente />} />
+            <Route path="agenda" element={<Agenda />} />
+          </Route>
         </Route>
         <Route path="portal" element={<PortalProveedor />}>
           <Route index element={<PortalAcceso />} />
