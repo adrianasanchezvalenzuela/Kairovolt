@@ -3,36 +3,36 @@
   --kv-navy: #102b40;
   --kv-teal: #176b70;
   --kv-ambar: #f2bd55;
-  --kv-hielo: #e9eff2;
-  --kv-fondo: #f7f8fa;
+  --kv-hielo: #e0e9ec;
+  --kv-fondo: #f6f3eb;
 
   /* Texto y bordes (contraste AA sobre blanco y sobre --kv-fondo) */
   --kv-texto: #102b40;
-  --kv-texto-suave: #52677a;
-  --kv-borde: #d5dee4;
-  --kv-superficie: #ffffff;
+  --kv-texto-suave: #526778;
+  --kv-borde: #dfe7eb;
+  --kv-superficie: #fcfbf8;
 
   /* Tonos semánticos: color, fondo suave y color de texto sobre el tono sólido */
   --kv-ok: #176b70;
-  --kv-ok-fondo: #e1f0f0;
+  --kv-ok-fondo: #e3efed;
   --kv-ok-sobre: #ffffff;
   --kv-alerta: #8a5a0b;
-  --kv-alerta-fondo: #fdf3dc;
+  --kv-alerta-fondo: #fcf0d5;
   --kv-alerta-sobre: #102b40;
   --kv-alerta-solido: #f2bd55;
   --kv-error: #b3372f;
   --kv-error-fondo: #fbe9e7;
   --kv-error-sobre: #ffffff;
   --kv-info: #102b40;
-  --kv-info-fondo: #e9eff2;
+  --kv-info-fondo: #e0e9ec;
   --kv-info-sobre: #ffffff;
   --kv-neutro: #52677a;
   --kv-neutro-fondo: #eef1f4;
   --kv-neutro-sobre: #ffffff;
 
-  --kv-radio: 6px;
-  --kv-radio-grande: 10px;
-  --kv-sombra: 0 1px 2px rgb(16 43 64 / 8%), 0 1px 3px rgb(16 43 64 / 6%);
+  --kv-radio: 10px;
+  --kv-radio-grande: 17px;
+  --kv-sombra: 0 1px 2px rgb(16 43 64 / 5%);
   --kv-sombra-modal: 0 12px 40px rgb(16 43 64 / 28%);
   --kv-foco: 0 0 0 2px #fff, 0 0 0 4px var(--kv-teal);
   --kv-ancho-sidebar: 240px;

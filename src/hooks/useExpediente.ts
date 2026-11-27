@@ -15,7 +15,8 @@ import type { Proyecto } from '@/domain/proyecto/proyecto';
 import { hayRequisitosPendientesDeIDC } from '@/domain/checklist/catalogo';
 import type { ResultadoValidacion } from '@/domain/reglas/tipos';
 import { puede } from '@/domain/usuarios/permisos';
-import { catalogoRepositorio, decisionesRepositorio } from '@/infrastructure';
+import { decisionesRepositorio } from '@/infrastructure';
+import type { CatalogoRepositorio } from '@/infrastructure/catalogo';
 import { useFuenteDatos } from './FuenteDatos';
 
 const SISTEMA = { uid: null, nombre: 'Sistema' } as const;
@@ -25,7 +26,7 @@ const ctxBase = (folio: string, actor: ContextoDecision['actor']): ContextoDecis
 });
 
 /** Aplica las decisiones guardadas, analiza y reabre lo que corresponda si un problema reapareció (guardando esa reapertura). */
-async function armar(p: Proyecto, repo: DecisionesRepositorio, catalogo: typeof catalogoRepositorio): Promise<{ item: ItemCartera; decisiones: DecisionesProyecto }> {
+async function armar(p: Proyecto, repo: DecisionesRepositorio, catalogo: CatalogoRepositorio): Promise<{ item: ItemCartera; decisiones: DecisionesProyecto }> {
   const catalogoRequisitos = await catalogo.listar();
   const hoy = hoyIso();
   let decisiones = await repo.cargar(p.folio);

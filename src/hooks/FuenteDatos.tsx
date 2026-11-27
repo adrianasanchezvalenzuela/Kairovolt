@@ -6,6 +6,7 @@ import {
 import { puede } from '@/domain/usuarios/permisos';
 import type { ProyectoRepositorio } from '@/application/proyecto-repositorio';
 import type { SincronizacionRepositorio } from '@/application/sincronizacion';
+import type { CatalogoRepositorio } from '@/infrastructure/catalogo';
 import {
   catalogoRepositorio, catalogoRepositorioMock, integracionRepositorio, proyectoRepositorioMock, proyectoRepositorioZoho, sesionRepositorio, sincronizacionRepositorio,
 } from '@/infrastructure';
@@ -16,7 +17,7 @@ interface Valor {
   fuente: FuenteDatos;
   motivoMock: MotivoMock | null;
   repositorio: ProyectoRepositorio;
-  catalogo: typeof catalogoRepositorio;
+  catalogo: CatalogoRepositorio;
   /** Solo existe con datos reales: sincronizar contra Zoho estando en MOCK sería escribir datos que no son los de la pantalla. */
   sincronizacion: SincronizacionRepositorio | null;
   /** Quién está dentro (null si nadie). */

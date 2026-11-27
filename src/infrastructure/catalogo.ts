@@ -4,6 +4,11 @@ import { comoRequisitoChecklist, type RequisitoDocumental } from '@/domain/check
 import { catalogoRequisitosBase } from '@/data/catalogo-requisitos.mock';
 
 let respuestaEnCache: Promise<RequisitoDocumental[]> | null = null;
+export interface CatalogoRepositorio {
+  listar(): Promise<Requisito[]>;
+  listarAdministrativo(): Promise<RequisitoDocumental[]>;
+  invalidar(): void;
+}
 /** Modo demostración aislado: sin sesión real ni Zoho se usa el catálogo ficticio local (sin llamadas a /api/admin). */
 let modoLocal = false;
 
@@ -55,7 +60,7 @@ const catalogoMock: RequisitoDocumental[] = catalogoRequisitosBase.map((r, orden
 }));
 
 /** Catálogo local para el modo MOCK. Nunca consulta endpoints protegidos. */
-export const catalogoRepositorioMock = {
+export const catalogoRepositorioMock: CatalogoRepositorio = {
   listar: async (): Promise<Requisito[]> => catalogoMock.filter((r) => r.activo && r.tipo && r.compuerta).map(comoRequisitoChecklist),
   listarAdministrativo: async (): Promise<RequisitoDocumental[]> => catalogoMock,
   invalidar: (): void => undefined,

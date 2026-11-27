@@ -20,7 +20,7 @@ tbody th[scope='row'] { background: none; text-transform: none; letter-spacing: 
 
 /* Campos de formulario: base común para los que no usan un componente propio */
 input:not([type='checkbox']):not([type='radio']):not([type='file']), select, textarea {
-  font: inherit; color: inherit; background: var(--kv-superficie); border: 1px solid var(--kv-borde); border-radius: var(--kv-radio); padding: 7px 10px;
+  font: inherit; color: inherit; background: var(--kv-superficie); border: 1px solid #b8c9d2; border-radius: 10px; padding: 9px 11px;
 }
 input:disabled, select:disabled, textarea:disabled { background: var(--kv-neutro-fondo); color: var(--kv-texto-suave); }
 button { font: inherit; }
