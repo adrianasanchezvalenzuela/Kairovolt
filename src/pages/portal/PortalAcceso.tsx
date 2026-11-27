@@ -52,6 +52,7 @@ export function PortalAcceso() {
   }, [enviar]);
 
   if (fase.tipo === 'listo') return <Navigate to="/portal/inicio" replace />;
+
   if (fase.tipo === 'cargando') return <div className="kvp"><CargaPortal etiqueta="Abriendo el portal…" /></div>;
 
   const enviarForm = (e: FormEvent) => { e.preventDefault(); void enviar(folio, codigo); };

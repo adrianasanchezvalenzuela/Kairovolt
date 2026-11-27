@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowRight, Users } from 'lucide-react';
+import { ArrowRight, Compass, Users } from 'lucide-react';
 import { EnergiaPortal, MarcaPortal } from '@/components/portal/DisenoPortal';
 import { DEMOS_VISUAL } from '@/components/portal/demos-visual';
 import { AlertPanel } from '@/components/ui/AlertPanel';
@@ -32,12 +32,18 @@ export function PortalDemos() {
     <div className="kv-sel__hero">
       <div>
         <h1>Elige una etapa del recorrido.</h1>
-        <p>Seis momentos de una misma interconexión fotovoltaica, del primer dato a la conexión. Avanza en orden o salta a donde quieras.</p>
+        <p>Un recorrido de siete momentos: de la primera consulta a la conexión con la red. Avanza en orden o salta a donde quieras.</p>
       </div>
       <EnergiaPortal className="kv-sel__energia" />
     </div>
     <p className="kv-sel__idc"><Users size={18} aria-hidden="true" /> ¿Quieres ver el otro lado? <Link to="/idc/KV-2026-005">Abrir el panel IDC de demostración</Link></p>
     {error && <AlertPanel tono="error">{error}</AlertPanel>}
+
+    <article className="kv-sel__previo">
+      <div className="kv-sel__fila"><span className="kv-sel__numero">00</span></div>
+      <div><h2>Antes de comenzar — Consulta de un nuevo proyecto</h2><p>Para quien aún no tiene folio: consulta inicial, envío, confirmación, seguimiento y asesoría.</p></div>
+      <button type="button" className="kv-sel__boton" onClick={() => { navegar('/portal'); window.scrollTo({ top: 0 }); }}><Compass size={17} aria-hidden="true" /> Abrir demo 00<ArrowRight size={17} aria-hidden="true" /></button>
+    </article>
 
     <div className="kv-sel__rejilla">{DEMOS_VISUAL.map((d) => {
       const demo = demosPortal[d.indice]!;

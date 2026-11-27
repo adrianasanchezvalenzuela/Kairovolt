@@ -123,3 +123,37 @@ export function IlusConectada({ className, tono }: PropsIlus) {
     <path d="m214 44 6-14 6 14 14 6-14 6-6 14-6-14-14-6Z" fill={AM} /><path d="m376 214 4-9 4 9 9 4-9 4-4 9-4-9-9-4Z" fill={SA} />
   </Marco>;
 }
+
+/** Portada pública — infraestructura eléctrica y paneles solares bajo un sol ámbar. */
+export function IlusEntrada({ className, tono }: PropsIlus) {
+  const p = paleta(tono);
+  return <svg aria-hidden="true" focusable="false" className={className} viewBox="0 0 560 340" fill="none" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="418" cy="96" r="58" fill={p.sol} />
+    <path d="M20 300h520M60 316h440" stroke={p.suelo} strokeOpacity=".55" strokeWidth="2" />
+    <path d="M0 300c60-40 120-52 190-40s130 8 190-14 120-10 180 16" stroke={p.suelo} strokeOpacity=".5" strokeWidth="2" />
+    {[0, 1, 2].map((i) => <g key={i}><Panel x={40 + i * 84} y={286} w={72} c={p.trazo} /><path d={`M${74 + i * 84} 286v14`} stroke={p.trazo} strokeWidth="2.4" /></g>)}
+    {[0, 1, 2].map((i) => <g key={i}><Panel x={58 + i * 84} y={238} w={72} c={p.trazo} /><path d={`M${92 + i * 84} 238v14`} stroke={p.trazo} strokeWidth="2.4" /></g>)}
+    <path d="M330 300v-86l70-40 70 40v86Z" fill={p.papel} stroke={p.trazo} strokeWidth="3" />
+    <rect x="372" y="244" width="34" height="56" rx="4" fill={SA} stroke={p.tinta} strokeWidth="2.4" /><rect x="420" y="232" width="34" height="28" rx="4" fill={SA} stroke={p.tinta} strokeWidth="2.4" />
+    <Torre x={510} y={300} c={p.trazo} />
+    <path d="M264 262c60 0 110-50 188-110M264 232c60-10 110-50 190-96" stroke={p.trazo === NA ? TE : '#8FD0CB'} strokeWidth="2.6" />
+    <path d="M264 262c60 0 110-50 188-110" stroke={AM} strokeWidth="2.6" strokeDasharray="2 14" />
+    <circle cx="264" cy="262" r="6" fill={AM} /><circle cx="452" cy="152" r="6" fill={AM} />
+    <path d="m196 70 7-15 7 15 15 7-15 7-7 15-7-15-15-7Z" fill={AM} /><path d="m120 132 4-9 4 9 9 4-9 4-4 9-4-9-9-4Z" fill={SA} />
+  </svg>;
+}
+
+/** Confirmación — consulta enviada: hoja con marca de verificación, sol y avioncito de papel. */
+export function IlusExito({ className, tono }: PropsIlus) {
+  const p = paleta(tono);
+  return <Marco className={className}>
+    <circle cx="320" cy="80" r="46" fill={p.sol} />
+    <path d="M24 270h372" stroke={p.suelo} strokeOpacity=".5" strokeWidth="2" />
+    <rect x="84" y="50" width="170" height="210" rx="16" fill={p.papel} stroke={p.trazo} strokeWidth="3.4" />
+    <rect x="106" y="76" width="70" height="12" rx="6" fill={TE} /><path d="M106 112h124M106 134h124M106 156h90" stroke={p.tinta} strokeWidth="6" opacity=".2" />
+    <circle cx="214" cy="214" r="38" fill={TE} stroke={p.papel} strokeWidth="5" /><path d="m196 214 14 14 26-30" stroke={MA} strokeWidth="7" />
+    <path d="m262 148 100-46-30 92-26-24-22 18Z" fill={SA} stroke={p.trazo} strokeWidth="3" /><path d="m306 170 26-68" stroke={p.trazo} strokeWidth="3" />
+    <Panel x={290} y={262} w={56} c={p.trazo} /><Torre x={374} y={270} c={p.trazo} />
+    <path d="m70 40 5-11 5 11 11 5-11 5-5 11-5-11-11-5Z" fill={AM} />
+  </Marco>;
+}
