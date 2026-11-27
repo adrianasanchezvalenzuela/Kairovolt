@@ -8,7 +8,8 @@ import { IlusConectada, IlusEquipo } from '@/components/portal/IlustracionesHero
 import { Dialogo } from '@/components/ui/Dialogo';
 
 const ENLACES = [['inicio', 'Inicio'], ['nosotros', 'Nosotros'], ['como-funciona', 'Cómo funciona'], ['contacto', 'Contacto']] as const;
-const FOTO = '/brand/idc-equipo.jpg';
+/** Se prueba en este orden; basta con guardar la fotografía con cualquiera de estos nombres en public/brand/. */
+const FOTOS = ['/brand/idc-equipo.jpg', '/brand/idc-equipo.jpeg', '/brand/idc-equipo.png', '/brand/idc-equipo.webp'];
 /** Los escenarios de demostración viven bajo /demo/portal (modo demo del portal); solo existen en desarrollo. */
 const RUTA_DEMOS = '/demo/portal/demos';
 
@@ -36,7 +37,7 @@ function irA(id: string) {
 export function Landing() {
   const [menu, setMenu] = useState(false);
   const [privacidad, setPrivacidad] = useState(false);
-  const [fotoOk, setFotoOk] = useState(true);
+  const [fotoIdx, setFotoIdx] = useState(0);
   const hayDemos = import.meta.env.DEV;
   useEffect(() => { window.scrollTo({ top: 0 }); }, []);
   useEffect(() => { const f = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(false); window.addEventListener('keydown', f); return () => window.removeEventListener('keydown', f); }, []);
@@ -70,8 +71,7 @@ export function Landing() {
         <figure className="kv-ld-foto">
           <span className="kv-ld-foto__marco" aria-hidden="true" />
           <svg className="kv-ld-foto__trama" viewBox="0 0 120 120" aria-hidden="true"><path d="M0 20h120M0 50h120M0 80h120M0 110h120M20 0v120M50 0v120M80 0v120M110 0v120" stroke="currentColor" strokeWidth="1" /></svg>
-          <div className="kv-ld-foto__imagen">{fotoOk
-            ? <img src={FOTO} alt="Personal de IDC Sistemas Eléctricos trabajando en una instalación eléctrica" loading="eager" onError={() => setFotoOk(false)} />
+          <div className="kv-ld-foto__imagen">{fotoIdx < FOTOS.length ? <img key={FOTOS[fotoIdx]} src={FOTOS[fotoIdx]} alt="Personal de IDC Sistemas Eléctricos trabajando en una instalación eléctrica" loading="eager" onError={() => setFotoIdx((i) => i + 1)} />
             : <IlusEquipo />}</div>
           <figcaption><Cable size={15} aria-hidden="true" /> Ingeniería en acción</figcaption>
         </figure>

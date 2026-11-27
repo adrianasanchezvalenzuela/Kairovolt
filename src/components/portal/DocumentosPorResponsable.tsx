@@ -162,11 +162,11 @@ function Detalle({ def, doc, folio, onCerrar, onEnviado }: { def: DefDocumento; 
     </section>}
     {e === 'en_revision' && <Aviso tono="info" titulo="En revisión por IDC">Recibimos tu envío (v{ultima?.n}). Te avisaremos aquí y por correo cuando termine.</Aviso>}
     {e === 'prevalidado' && <Aviso tono="ok" titulo="Prevalidado por IDC">Revisión digital favorable{doc.revisadoEn ? ` el ${fecha(doc.revisadoEn)}` : ''}. Esto no sustituye la entrega física ni equivale a la aceptación de CFE.</Aviso>}
+    {def.id === 'carta_poder' && <Acordeon titulo="Genera tu carta poder para imprimirla y firmarla" abierto={e === 'pendiente' || e === 'por_corregir'}><CartaDemoPortal /></Acordeon>}
     {(e === 'pendiente' || e === 'por_corregir') && <Cargador
       etiqueta={e === 'por_corregir' ? 'Sube la versión corregida' : 'Sube tu documento para que IDC lo revise'}
       boton={e === 'por_corregir' ? 'Enviar versión corregida' : 'Enviar a revisión'}
       onEnviar={(a, f) => enviar(a, e === 'por_corregir' ? `Versión corregida enviada: ${def.corto} pasó a la versión ${doc.versiones.length + 1}.` : `${def.corto} enviado. IDC lo revisará pronto.`, f)} />}
-    {def.id === 'carta_poder' && (e === 'pendiente' || e === 'por_corregir') && <Acordeon titulo="Genera tu carta poder de demostración"><CartaDemoPortal /></Acordeon>}
     {version && <VisorArchivo def={def} version={version} doc={doc} folio={folio} />}
     <GuiaCliente def={def} folioVista={v} />
     <Acordeon titulo="Historial de versiones"><Versiones def={def} doc={doc} onVer={setVer} activa={ver} /></Acordeon>
