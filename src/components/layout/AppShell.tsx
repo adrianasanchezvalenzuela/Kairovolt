@@ -8,6 +8,7 @@ import { Boton } from '@/components/ui/Boton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Sidebar, type SeccionNav } from './Sidebar';
 import { Topbar } from './Topbar';
+import './refinamiento-interior.css';
 
 const zohoUi: Record<EstadoZohoUi, { texto: string; tono: 'ok' | 'alerta' | 'error' }> = {
   conectado: { texto: 'Zoho: autenticación verificada', tono: 'ok' },
@@ -39,6 +40,8 @@ export function AppShell() {
   }
 
   const zoho = zohoUi[integracion.zoho];
+  const rutaSinBarraFinal = pathname.replace(/\/+$/, '') || '/';
+  const refinarContenido = rutaSinBarraFinal !== '/panel' && rutaSinBarraFinal !== '/proyectos' && !rutaSinBarraFinal.startsWith('/proyectos/');
   const puedeIniciar = sesion.loginHabilitado; // el login no depende de Zoho: también da acceso a la gestión de usuarios
 
   const secciones: SeccionNav[] = [
@@ -82,7 +85,7 @@ export function AppShell() {
             ? <Boton tamano="sm" onClick={() => void cerrarSesion()}>Cerrar sesión</Boton>
             : <Link to="/acceso" className="kv-btn kv-btn--secundario kv-btn--sm">Iniciar sesión</Link>)}
         </Topbar>
-        <main id="contenido" className="kv-shell__contenido" tabIndex={-1}>
+        <main id="contenido" className={`kv-shell__contenido${refinarContenido ? ' kv-shell__contenido--refinado' : ''}`} tabIndex={-1}>
           <Outlet />
         </main>
       </div>

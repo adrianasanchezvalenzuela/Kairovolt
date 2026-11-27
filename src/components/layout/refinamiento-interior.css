@@ -1,0 +1,48 @@
+/* Refinamiento de vistas internas fuera de Panel, Proyectos y detalle de proyecto. */
+.kv-shell__contenido--refinado {
+  max-width: 1360px;
+  padding: clamp(20px, 2.4vw, 32px);
+}
+
+.kv-shell__contenido--refinado > h1,
+.kv-shell__contenido--refinado .kv-pagina-enc h1 {
+  font-size: clamp(24px, 2vw, 28px);
+  letter-spacing: -.025em;
+}
+
+.kv-shell__contenido--refinado > h2 {
+  margin: 24px 0 10px;
+  font-size: 17px;
+  letter-spacing: -.01em;
+}
+
+.kv-shell__contenido--refinado .kv-pagina-enc {
+  align-items: flex-end;
+  margin-bottom: 20px;
+}
+
+.kv-shell__contenido--refinado .kv-pagina-enc__migas { font-size: 12px; }
+.kv-shell__contenido--refinado .kv-pagina-enc__meta { max-width: 76ch; font-size: 13px; }
+
+.kv-shell__contenido--refinado .kv-filtros { margin-bottom: 16px; }
+.kv-shell__contenido--refinado .kv-filtros [role='status'] { padding-bottom: 8px; font-size: 12px; }
+
+.kv-shell__contenido--refinado table { font-size: 13px; }
+.kv-shell__contenido--refinado th { padding-top: 9px; padding-bottom: 9px; }
+.kv-shell__contenido--refinado tbody tr { transition: background-color .12s; }
+.kv-shell__contenido--refinado tbody tr:hover { background: #f4f7f8; }
+.kv-shell__contenido--refinado td { overflow-wrap: anywhere; }
+
+.kv-shell__contenido--refinado input:not([type='checkbox']):not([type='radio']):focus-visible,
+.kv-shell__contenido--refinado select:focus-visible,
+.kv-shell__contenido--refinado textarea:focus-visible { border-color: var(--kv-teal); }
+
+@media (max-width: 899px) {
+  .kv-shell__contenido--refinado { padding: 16px; }
+}
+
+@media (max-width: 560px) {
+  .kv-shell__contenido--refinado { padding: 16px 12px 24px; }
+  .kv-shell__contenido--refinado .kv-pagina-enc__acciones { width: 100%; }
+  .kv-shell__contenido--refinado .kv-dato { grid-template-columns: minmax(100px, .7fr) minmax(0, 1.3fr); }
+}
