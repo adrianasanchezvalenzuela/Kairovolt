@@ -8,7 +8,6 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { useFuenteDatos } from '@/hooks/FuenteDatos';
 import { puede } from '@/domain/usuarios/permisos';
 import type { RequisitoDocumental } from '@/domain/checklist/catalogo';
-import { catalogoRepositorio } from '@/infrastructure/catalogo';
 
 type Estado = 'recibido' | 'en_revision' | 'prevalidado' | 'aceptado' | 'rechazado';
 interface RecepcionIDC {
@@ -36,7 +35,7 @@ async function consultar(filtros: Record<string, string>, signal?: AbortSignal) 
 }
 
 export function BandejaIDC() {
-  const { usuario } = useFuenteDatos();
+  const { usuario, catalogo: catalogoFuente } = useFuenteDatos();
   const autorizado = puede(usuario?.rol, 'gestionar_validaciones');
   const [campos, setCampos] = useState(inicial);
   const [filtros, setFiltros] = useState(inicial);
@@ -60,10 +59,10 @@ export function BandejaIDC() {
   useEffect(() => {
     if (!autorizado) return;
     let vigente = true;
-    void catalogoRepositorio.listarAdministrativo().then((r) => { if (vigente) setCatalogo(r); })
+    void catalogoFuente.listarAdministrativo().then((r) => { if (vigente) setCatalogo(r); })
       .catch(() => { if (vigente) setCatalogo([]); });
     return () => { vigente = false; };
-  }, [autorizado, intento]);
+  }, [autorizado, intento, catalogoFuente]);
 
   useEffect(() => {
     if (!autorizado) return;

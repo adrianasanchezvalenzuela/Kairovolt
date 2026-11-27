@@ -13,7 +13,8 @@ import { ORDEN_SEVERIDAD, type Severidad } from '@/domain/reglas/tipos';
 export function Validaciones() {
   const { items, error, recargar } = useCartera();
   const [severidad, setSeveridad] = useState<'todas' | Severidad>('todas');
-  const [soloPendientes, setSoloPendientes] = useState(true);
+  const [mostrar, setMostrar] = useState<'atencion' | 'todas'>('atencion');
+  const [pagina, setPagina] = useState(1);
 
   const filas = useMemo(() => (items ?? []).flatMap(({ proyecto: p, analisis: a }) => {
     const ids = new Set(p.documentos.map((d) => d.id));
@@ -24,7 +25,11 @@ export function Validaciones() {
   if (error) return <ErrorState titulo="No se pudieron cargar los proyectos" detalle={error} onReintentar={recargar} />;
   if (!items) return <LoadingState etiqueta="Cargando validaciones…" />;
 
-  const visibles = filas.filter((f) => (severidad === 'todas' || f.r.severidad === severidad) && (!soloPendientes || f.pendiente || f.r.severidad !== 'bloqueante'));
+  const visibles = filas.filter((f) => (severidad === 'todas' || f.r.severidad === severidad) && (mostrar === 'todas' || f.pendiente || f.r.severidad !== 'bloqueante'));
+  const porPagina = 8;
+  const paginas = Math.max(1, Math.ceil(visibles.length / porPagina));
+  const paginaActual = Math.min(pagina, paginas);
+  const visiblesPagina = visibles.slice((paginaActual - 1) * porPagina, paginaActual * porPagina);
   const bloqueantes = filas.filter((f) => f.pendiente).length;
 
   return (
@@ -38,20 +43,26 @@ export function Validaciones() {
       </KPIGrid>
       <div className="kv-filtros" style={{ marginTop: 16 }}>
         <div className="kv-campo">
+          <label htmlFor="v-m">Mostrar</label>
+          <select id="v-m" value={mostrar} onChange={(e) => { setMostrar(e.target.value as 'atencion' | 'todas'); setPagina(1); }}>
+            <option value="atencion">Solo lo que no cumple</option>
+            <option value="todas">Todo</option>
+          </select>
+        </div>
+        <div className="kv-campo">
           <label htmlFor="v-s">Severidad</label>
-          <select id="v-s" value={severidad} onChange={(e) => setSeveridad(e.target.value as 'todas' | Severidad)}>
+          <select id="v-s" value={severidad} onChange={(e) => { setSeveridad(e.target.value as 'todas' | Severidad); setPagina(1); }}>
             <option value="todas">Todas</option>
             {(Object.keys(ORDEN_SEVERIDAD) as Severidad[]).map((s) => <option key={s} value={s}>{s[0]!.toUpperCase() + s.slice(1)}</option>)}
           </select>
         </div>
-        <label><input type="checkbox" checked={soloPendientes} onChange={(e) => setSoloPendientes(e.target.checked)} /> Ocultar bloqueantes ya resueltos o con excepción</label>
         <span className="kv-suave" role="status">{visibles.length} resultado(s)</span>
       </div>
       {visibles.length === 0
         ? <EmptyState icono="✓" titulo="Sin validaciones pendientes" descripcion="No hay resultados que no cumplan con este filtro." />
         : (
           <ul className="kv-lista-alertas" aria-label="Validaciones que no cumplen">
-            {visibles.map(({ p, r, ids, pendiente, excepcion, obs }) => (
+            {visiblesPagina.map(({ p, r, ids, pendiente, excepcion, obs }) => (
               <li key={`${p.id}:${r.huella}`}>
                 <p style={{ margin: '0 0 4px' }}>
                   <Link className="kv-mono" to={`/proyectos/${encodeURIComponent(p.id)}?tab=validaciones&huella=${encodeURIComponent(r.huella)}`}>{p.folio}</Link>{' '}
@@ -69,6 +80,13 @@ export function Validaciones() {
             ))}
           </ul>
         )}
+      {visibles.length > 0 && (
+        <nav className="kv-filtros" aria-label="Paginación de validaciones">
+          <button className="kv-btn kv-btn--secundario kv-btn--sm" type="button" disabled={paginaActual === 1} onClick={() => setPagina((p) => Math.max(1, p - 1))}>Anterior</button>
+          <span className="kv-suave" aria-live="polite">Página {paginaActual} de {paginas} · Mostrando {((paginaActual - 1) * porPagina) + 1}–{Math.min(paginaActual * porPagina, visibles.length)} de {visibles.length}</span>
+          <button className="kv-btn kv-btn--secundario kv-btn--sm" type="button" disabled={paginaActual === paginas} onClick={() => setPagina((p) => Math.min(paginas, p + 1))}>Siguiente</button>
+        </nav>
+      )}
     </>
   );
 }

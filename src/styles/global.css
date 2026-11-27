@@ -8,6 +8,8 @@ table { width: 100%; border-collapse: collapse; background: var(--kv-superficie)
 th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--kv-borde); vertical-align: top; }
 th { background: var(--kv-hielo); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--kv-texto-suave); }
 tbody th[scope='row'] { background: none; text-transform: none; letter-spacing: 0; font-size: inherit; font-weight: 400; color: inherit; }
+.kv-tabla-compacta th, .kv-tabla-compacta td { padding: 8px 10px; }
+.kv-tabla-compacta th { font-size: 11px; }
 .kv-mono { font-family: var(--kv-mono); font-size: .93em; }
 .kv-nowrap { white-space: nowrap; }
 .kv-suave { color: var(--kv-texto-suave); }

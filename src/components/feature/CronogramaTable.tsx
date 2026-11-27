@@ -18,7 +18,7 @@ export interface CronogramaTableProps {
 export function CronogramaTable({ actividades, proyectoDe }: CronogramaTableProps) {
   return (
     <div className="kv-tabla-scroll">
-      <table aria-label="Cronograma">
+      <table className="kv-tabla-compacta" aria-label="Cronograma">
         <thead>
           <tr>
             {proyectoDe && <th scope="col">Proyecto</th>}
@@ -31,7 +31,7 @@ export function CronogramaTable({ actividades, proyectoDe }: CronogramaTableProp
             return (
               <tr key={`${p?.folio ?? ''}-${a.id}`}>
                 {proyectoDe && <td className="kv-mono kv-nowrap">{p ? <Link to={p.to}>{p.folio}</Link> : '—'}</td>}
-                <td>{a.compuerta}</td>
+                <td><span className="kv-mono">{a.compuerta}</span></td>
                 <td>{a.nombre}</td>
                 <td>{a.responsable ?? <span className="kv-suave">Sin asignar</span>}</td>
                 <td className="kv-mono">{a.inicioPlan}</td>

@@ -25,8 +25,8 @@ const ctxBase = (folio: string, actor: ContextoDecision['actor']): ContextoDecis
 });
 
 /** Aplica las decisiones guardadas, analiza y reabre lo que corresponda si un problema reapareció (guardando esa reapertura). */
-async function armar(p: Proyecto, repo: DecisionesRepositorio): Promise<{ item: ItemCartera; decisiones: DecisionesProyecto }> {
-  const catalogoRequisitos = await catalogoRepositorio.listar();
+async function armar(p: Proyecto, repo: DecisionesRepositorio, catalogo: typeof catalogoRepositorio): Promise<{ item: ItemCartera; decisiones: DecisionesProyecto }> {
+  const catalogoRequisitos = await catalogo.listar();
   const hoy = hoyIso();
   let decisiones = await repo.cargar(p.folio);
   let efectivo = aplicarDecisiones(p, decisiones);
@@ -46,7 +46,7 @@ const mensaje = (e: unknown): string => (e instanceof Error ? e.message : 'Error
 
 /** Todos los proyectos de la fuente activa, ya analizados (para el dashboard y las páginas de cartera). */
 export function useCartera() {
-  const { repositorio } = useFuenteDatos();
+  const { repositorio, catalogo } = useFuenteDatos();
   const [items, setItems] = useState<ItemCartera[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,10 +54,10 @@ export function useCartera() {
     setItems(null);
     setError(null);
     repositorio.listar()
-      .then((ps) => Promise.all(ps.map((p) => armar(p, decisionesRepositorio))))
+      .then((ps) => Promise.all(ps.map((p) => armar(p, decisionesRepositorio, catalogo))))
       .then((r) => setItems(r.map((x) => x.item)))
       .catch((e: unknown) => setError(mensaje(e)));
-  }, [repositorio]);
+  }, [repositorio, catalogo]);
   useEffect(recargar, [recargar]);
 
   return { items, error, recargar, hoy: hoyIso() };
@@ -67,7 +67,7 @@ export type ResultadoCambioCompuerta = { tipo: 'local' } | { tipo: 'zoho'; resul
 
 /** Un proyecto con su análisis y las operaciones de decisión (todas con permiso comprobado y auditoría). */
 export function useProyectoCompleto(id: string) {
-  const { repositorio, sincronizacion, usuario, fuente } = useFuenteDatos();
+  const { repositorio, catalogo, sincronizacion, usuario, fuente } = useFuenteDatos();
   const [estado, setEstado] = useState<{ item: ItemCartera; decisiones: DecisionesProyecto } | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const baseRef = useRef<Proyecto | null>(null);
@@ -76,12 +76,12 @@ export function useProyectoCompleto(id: string) {
     try {
       const p = await repositorio.obtenerPorId(id);
       baseRef.current = p;
-      setEstado(p ? await armar(p, decisionesRepositorio) : null);
+      setEstado(p ? await armar(p, decisionesRepositorio, catalogo) : null);
       setError(null);
     } catch (e) {
       setError(mensaje(e));
     }
-  }, [repositorio, id]);
+  }, [repositorio, id, catalogo]);
   useEffect(() => { setEstado(undefined); void cargar(); }, [cargar]);
 
   const actor = useMemo(() => ({ uid: null, nombre: usuario?.nombre ?? usuario?.correo ?? 'Sin sesión' }), [usuario]);
@@ -94,8 +94,8 @@ export function useProyectoCompleto(id: string) {
     const actuales = await decisionesRepositorio.cargar(base.folio);
     const nuevas = f(actuales, ctxBase(base.folio, actor));
     await decisionesRepositorio.guardar(base.folio, nuevas);
-    setEstado(await armar(base, decisionesRepositorio));
-  }, [actor]);
+    setEstado(await armar(base, decisionesRepositorio, catalogo));
+  }, [actor, catalogo]);
 
   const exigir = (permitido: boolean, texto: string) => {
     if (!permitido) throw new ErrorDecision([texto]);
@@ -152,8 +152,8 @@ export function useProyectoCompleto(id: string) {
       const de = p.compuertas.find((c) => c.id === compuerta)?.estado;
       if (!de) throw new ErrorDecision([`El proyecto no tiene la compuerta ${compuerta}.`]);
       if (fuente === 'zoho' && a === 'liberada' && opciones.simular !== true) {
-        const catalogo = await catalogoRepositorio.listarAdministrativo();
-        if (hayRequisitosPendientesDeIDC(catalogo)) throw new ErrorDecision(['No se puede liberar una compuerta: el catálogo documental tiene requisitos pendientes de validación por IDC.']);
+        const requisitos = await catalogo.listarAdministrativo();
+        if (hayRequisitosPendientesDeIDC(requisitos)) throw new ErrorDecision(['No se puede liberar una compuerta: el catálogo documental tiene requisitos pendientes de validación por IDC.']);
       }
       const bloqueo = an.disponible
         ? an.bloqueos[compuerta]

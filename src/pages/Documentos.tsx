@@ -44,7 +44,7 @@ export function Documentos() {
         ? <EmptyState compacto icono="✓" titulo="Nada pendiente" descripcion="No hay documentos faltantes ni vencidos con este filtro." />
         : (
           <div className="kv-tabla-scroll">
-            <table aria-label="Documentos de todos los proyectos">
+            <table className="kv-tabla-compacta" aria-label="Documentos de todos los proyectos">
               <thead><tr><th scope="col">Proyecto</th><th scope="col">Documento</th><th scope="col">Compuerta</th><th scope="col">Canal</th><th scope="col">Estado</th></tr></thead>
               <tbody>
                 {visibles.map((f) => (

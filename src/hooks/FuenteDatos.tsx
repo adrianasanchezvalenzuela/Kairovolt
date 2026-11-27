@@ -7,7 +7,7 @@ import { puede } from '@/domain/usuarios/permisos';
 import type { ProyectoRepositorio } from '@/application/proyecto-repositorio';
 import type { SincronizacionRepositorio } from '@/application/sincronizacion';
 import {
-  catalogoRepositorio, integracionRepositorio, proyectoRepositorioMock, proyectoRepositorioZoho, sesionRepositorio, sincronizacionRepositorio,
+  catalogoRepositorio, catalogoRepositorioMock, integracionRepositorio, proyectoRepositorioMock, proyectoRepositorioZoho, sesionRepositorio, sincronizacionRepositorio,
 } from '@/infrastructure';
 
 interface Valor {
@@ -16,6 +16,7 @@ interface Valor {
   fuente: FuenteDatos;
   motivoMock: MotivoMock | null;
   repositorio: ProyectoRepositorio;
+  catalogo: typeof catalogoRepositorio;
   /** Solo existe con datos reales: sincronizar contra Zoho estando en MOCK sería escribir datos que no son los de la pantalla. */
   sincronizacion: SincronizacionRepositorio | null;
   /** Quién está dentro (null si nadie). */
@@ -48,6 +49,7 @@ export function FuenteDatosProvider({ children }: { children: ReactNode }) {
       fuente,
       motivoMock,
       repositorio: fuente === 'zoho' ? proyectoRepositorioZoho : proyectoRepositorioMock,
+      catalogo: fuente === 'zoho' ? catalogoRepositorio : catalogoRepositorioMock,
       usuario: estado.sesion.usuario,
       // Solo se ofrece sincronizar si el rol puede (el backend lo vuelve a exigir en cada petición).
       sincronizacion: fuente === 'zoho' && puede(estado.sesion.usuario?.rol, 'sincronizar_zoho') ? sincronizacionRepositorio : null,

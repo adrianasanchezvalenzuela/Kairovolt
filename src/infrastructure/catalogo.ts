@@ -1,6 +1,7 @@
 import type { Requisito } from '@/domain/checklist/checklist';
 import { catalogoDeDemostracion } from '../../server/catalogo';
 import { comoRequisitoChecklist, type RequisitoDocumental } from '@/domain/checklist/catalogo';
+import { catalogoRequisitosBase } from '@/data/catalogo-requisitos.mock';
 
 let respuestaEnCache: Promise<RequisitoDocumental[]> | null = null;
 /** Modo demostración aislado: sin sesión real ni Zoho se usa el catálogo ficticio local (sin llamadas a /api/admin). */
@@ -31,4 +32,31 @@ export const catalogoRepositorio = {
     return respuestaEnCache;
   },
   invalidar(): void { respuestaEnCache = null; },
+};
+
+const catalogoMock: RequisitoDocumental[] = catalogoRequisitosBase.map((r, orden) => ({
+  ...r,
+  codigo: r.codigo ?? `KV_${r.tipo.toUpperCase()}`,
+  descripcion: r.descripcion ?? r.nombre,
+  categoria: r.categoria ?? 'general',
+  condicion: r.condicion ?? null,
+  requiereVigencia: r.requiereVigencia ?? false,
+  aportaCliente: r.aportaCliente ?? false,
+  reubicablePorZona: r.reubicablePorZona ?? false,
+  condicionesAplicacion: r.condicionesAplicacion ?? [],
+  quienAporta: r.quienAporta ?? 'pendiente',
+  instruccionesCliente: r.instruccionesCliente ?? null,
+  camposEsperados: r.camposEsperados ?? [],
+  ejemplosAutorizados: r.ejemplosAutorizados ?? [],
+  generacionAutomatica: r.generacionAutomatica ?? false,
+  activo: r.activo ?? true,
+  validacionIdc: r.validacionIdc ?? 'pendiente',
+  orden,
+}));
+
+/** Catálogo local para el modo MOCK. Nunca consulta endpoints protegidos. */
+export const catalogoRepositorioMock = {
+  listar: async (): Promise<Requisito[]> => catalogoMock.filter((r) => r.activo && r.tipo && r.compuerta).map(comoRequisitoChecklist),
+  listarAdministrativo: async (): Promise<RequisitoDocumental[]> => catalogoMock,
+  invalidar: (): void => undefined,
 };

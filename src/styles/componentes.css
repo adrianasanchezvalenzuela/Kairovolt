@@ -120,12 +120,12 @@ button.kv-paso__caja:hover { background: var(--kv-fondo); }
 
 /* ---------- ValidationCard + DiscrepancyPanel ---------- */
 .kv-validacion { background: var(--kv-superficie); border: 1px solid var(--kv-borde); border-left: 4px solid var(--tb, var(--kv-borde)); border-radius: var(--kv-radio); box-shadow: var(--kv-sombra); }
-.kv-validacion__resumen { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: flex-start; padding: 10px 14px; cursor: pointer; list-style: none; }
+.kv-validacion__resumen { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 9px 14px; cursor: pointer; list-style: none; }
 .kv-validacion__resumen::-webkit-details-marker { display: none; }
 .kv-validacion__resumen::before { content: '▸'; color: var(--kv-texto-suave); transition: transform .12s; margin-top: 1px; }
 .kv-validacion[open] > .kv-validacion__resumen::before { transform: rotate(90deg); }
 .kv-validacion__titulo { flex: 1 1 200px; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
-.kv-validacion__badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.kv-validacion__badges { display: flex; gap: 5px; flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end; align-items: center; margin-left: auto; }
 .kv-validacion__detalle { padding: 0 14px 12px 36px; }
 .kv-validacion__detalle p { margin: 0 0 8px; }
 .kv-validacion__etiqueta { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--kv-texto-suave); }
@@ -255,7 +255,7 @@ button.kv-paso__caja:hover { background: var(--kv-fondo); }
 /* ---------- Filtros y listas ---------- */
 .kv-filtros { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin: 0 0 12px; }
 .kv-filtros .kv-campo { margin: 0; min-width: 160px; }
-.kv-lista-alertas { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.kv-lista-alertas { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .kv-dos-col { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 @media (max-width: 1000px) { .kv-dos-col { grid-template-columns: minmax(0, 1fr); } }
 .kv-dato { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 4px 12px; margin: 0; }

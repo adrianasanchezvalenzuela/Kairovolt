@@ -21,13 +21,13 @@ interface Props {
 export function ObservacionesTable({ observaciones, onCerrar, ocupado }: Props) {
   if (observaciones.length === 0) return <EmptyState compacto titulo="Sin observaciones" descripcion="Aún no hay observaciones registradas para este proyecto." />;
   return (
-    <div className="kv-tabla-scroll"><table>
+    <div className="kv-tabla-scroll"><table className="kv-tabla-compacta">
       <thead><tr><th>Compuerta</th><th>Origen</th><th>Observación</th><th>Responsable</th><th>Compromiso</th><th>Seguimiento</th>{onCerrar && <th />}</tr></thead>
       <tbody>
         {observaciones.map(({ observacion: o, seguimiento }) => (
           <tr key={o.id}>
-            <td>{o.compuerta}</td>
-            <td>{o.origen.toUpperCase()}</td>
+            <td><span className="kv-mono">{o.compuerta}</span></td>
+            <td><StatusBadge tono="neutro">{o.origen.toUpperCase()}</StatusBadge></td>
             <td>{o.descripcion}</td>
             <td>{o.responsable ?? <span className="kv-suave">Sin asignar</span>}</td>
             <td className="kv-mono">{o.fechaCompromiso ?? '—'}</td>

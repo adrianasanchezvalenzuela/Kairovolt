@@ -39,7 +39,7 @@ const ETIQUETA_RESULTADO: Record<ResultadoVista, string> = { cumple: 'Cumple', n
 
 export interface ValidationCardProps {
   validacion: ValidacionVista;
-  /** Abre el detalle al inicio (por defecto solo los bloqueantes que no cumplen). */
+  /** Abre el detalle al inicio; las tarjetas de Validaciones se mantienen cerradas por defecto. */
   abierta?: boolean;
   /** Acciones al final del detalle (p. ej. «Registrar decisión»). Las decisiones las toma una persona. */
   acciones?: ReactNode;
@@ -52,16 +52,16 @@ export interface ValidationCardProps {
 /** Un hallazgo o resultado de regla, con la evidencia a la vista. Nunca decide cuál documento es el correcto. */
 export function ValidationCard({ validacion: v, abierta, acciones, seguimiento, onAbrirEvidencia }: ValidationCardProps) {
   const tono: Tono = v.resultado === 'cumple' ? 'ok' : v.resultado === 'no_evaluable' ? 'neutro' : TONO_SEVERIDAD[v.severidad];
-  const abierto = abierta ?? (v.resultado === 'no_cumple' && v.severidad === 'bloqueante');
+  const abierto = abierta ?? false;
   const hayComparacion = v.esperado != null || v.encontrado != null;
   return (
     <details className={cx('kv-validacion', claseTono(tono))} open={abierto}>
       <summary className="kv-validacion__resumen">
         <span className="kv-validacion__titulo">{v.titulo}</span>
         <span className="kv-validacion__badges">
-          {v.resultado !== 'no_cumple' && <StatusBadge tono={v.resultado === 'cumple' ? 'ok' : 'neutro'}>{ETIQUETA_RESULTADO[v.resultado]}</StatusBadge>}
-          {v.resultado !== 'cumple' && <StatusBadge tono={TONO_SEVERIDAD[v.severidad]} variante={v.severidad === 'bloqueante' ? 'solido' : 'contorno'}>{v.etiquetaSeveridad ?? ETIQUETA_SEVERIDAD[v.severidad]}</StatusBadge>}
-          {v.categoria && <StatusBadge>{v.categoria}</StatusBadge>}
+          {v.resultado !== 'no_cumple' && <StatusBadge tono={v.resultado === 'cumple' ? 'ok' : 'neutro'} variante="suave">{ETIQUETA_RESULTADO[v.resultado]}</StatusBadge>}
+          {v.resultado !== 'cumple' && <StatusBadge tono={TONO_SEVERIDAD[v.severidad]} variante="suave">{v.etiquetaSeveridad ?? ETIQUETA_SEVERIDAD[v.severidad]}</StatusBadge>}
+          {v.categoria && <StatusBadge variante="suave">{v.categoria}</StatusBadge>}
           {seguimiento}
         </span>
       </summary>

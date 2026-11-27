@@ -32,7 +32,8 @@ import { MarcoProto } from '@/prototipo/ui';
 import { Portada } from '@/prototipo/Portada';
 import { Correos } from '@/prototipo/Correos';
 import { Avisos, Cita, Documentos as DocsProto, Historial, Inicio } from '@/prototipo/Cliente';
-import { Agenda, Expediente, Mesa } from '@/prototipo/Idc';
+import { Expediente, Mesa } from '@/prototipo/Idc';
+import { PortalIdc as PortalIdcInterno } from '@/features/portal-idc/PortalIdc';
 
 const PortalDocumentos = lazy(() => import('@/pages/portal/PortalDocumentos').then((m) => ({ default: m.PortalDocumentos })));
 const cargarTramite = () => import('@/pages/portal/tramite/Tramite');
@@ -69,6 +70,7 @@ export function App() {
           <Route path="documentos" element={<Documentos />} />
           <Route path="validaciones" element={<Validaciones />} />
           <Route path="bandeja" element={<BandejaIDC />} />
+          <Route path="portal-idc" element={<PortalIdcInterno />} />
           <Route path="cronograma" element={<Cronograma />} />
           <Route path="seguimiento-cfe" element={<SeguimientoCfe />} />
           <Route path="indicadores" element={<Indicadores />} />
@@ -96,7 +98,6 @@ export function App() {
           <Route path="idc" element={<MarcoProto lado="idc" />}>
             <Route index element={<Mesa />} />
             <Route path="expediente" element={<Expediente />} />
-            <Route path="agenda" element={<Agenda />} />
           </Route>
         </Route>
         <Route path="portal" element={<PortalProveedor />}>

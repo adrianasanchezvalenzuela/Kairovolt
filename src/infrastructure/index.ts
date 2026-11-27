@@ -12,7 +12,7 @@ import { usuariosHttp } from './usuarios-http';
 import { portalHttp } from './portal-http';
 import { repositorioMock } from './proyecto-repositorio.mock';
 
-export { catalogoRepositorio } from './catalogo';
+export { catalogoRepositorio, catalogoRepositorioMock } from './catalogo';
 export { proyectoRepositorioZoho, sesionHttp as sesionRepositorio, sincronizacionHttp as sincronizacionRepositorio } from './zoho-http';
 
 /**

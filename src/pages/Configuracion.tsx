@@ -11,7 +11,6 @@ import { PERMISOS } from '@/domain/usuarios/permisos';
 import { puede } from '@/domain/usuarios/permisos';
 import { ROLES_USUARIO } from '@/domain/usuarios/rol';
 import { useFuenteDatos } from '@/hooks/FuenteDatos';
-import { catalogoRepositorio } from '@/infrastructure/catalogo';
 import type { RequisitoDocumental } from '@/domain/checklist/catalogo';
 import type { RevisionDigital } from '@/domain/checklist/preparacion';
 import { AlertPanel } from '@/components/ui/AlertPanel';
@@ -28,13 +27,13 @@ const ACCIONES_ETIQUETA: Record<string, string> = {
 
 /** Configuración vigente, en solo lectura. Las reglas, umbrales y permisos viven en el dominio; aún no se editan desde la interfaz. */
 export function Configuracion() {
-  const { usuario, fuente } = useFuenteDatos();
+  const { usuario, fuente, catalogo: catalogoFuente } = useFuenteDatos();
   const [tab, setTab] = useState('reglas');
   const [requisitos, setRequisitos] = useState<RequisitoDocumental[] | null>(null);
   const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
   const [guardandoModo, setGuardandoModo] = useState<string | null>(null);
   const bloqueo = CONFIGURACION_BLOQUEO_POR_DEFECTO;
-  useEffect(() => { void catalogoRepositorio.listarAdministrativo().then(setRequisitos).catch((e: unknown) => setErrorCatalogo(e instanceof Error ? e.message : 'No se pudo cargar el catálogo.')); }, []);
+  useEffect(() => { void catalogoFuente.listarAdministrativo().then(setRequisitos).catch((e: unknown) => setErrorCatalogo(e instanceof Error ? e.message : 'No se pudo cargar el catálogo.')); }, [catalogoFuente]);
 
   async function configurarModo(id: string, modo: RevisionDigital) {
     setGuardandoModo(id);
@@ -44,7 +43,7 @@ export function Configuracion() {
         method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'kairovolt' }, body: JSON.stringify({ modo }),
       });
       if (!r.ok) throw new Error('No se pudo guardar la modalidad de revisión digital.');
-      catalogoRepositorio.invalidar();
+      catalogoFuente.invalidar();
       setRequisitos((items) => items?.map((item) => item.id === id ? { ...item, revisionDigital: modo } : item) ?? null);
     } catch (e) { setErrorCatalogo(e instanceof Error ? e.message : 'No se pudo guardar.'); }
     finally { setGuardandoModo(null); }

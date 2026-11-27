@@ -60,6 +60,7 @@ export function AppShell() {
       // Vista especializada de revisión de expedientes (modo demostración): comparte estado con el portal del cliente.
       ...(import.meta.env.DEV ? [{ to: '/idc/KV-2026-005', etiqueta: 'Revisión documental de clientes', icono: '☑' }] : []),
     ] },
+    { titulo: 'IDC', items: [{ to: '/portal-idc', etiqueta: 'Portal IDC', icono: '◫' }] },
   ];
 
   return (

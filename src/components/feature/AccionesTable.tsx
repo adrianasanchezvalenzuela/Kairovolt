@@ -17,7 +17,7 @@ interface Props {
 export function AccionesTable({ acciones, paerSemanal }: Props) {
   if (paerSemanal.length === 0) return <p className="kv-suave">Sin acciones acordadas.</p>;
   return (
-    <div className="kv-tabla-scroll"><table>
+    <div className="kv-tabla-scroll"><table className="kv-tabla-compacta">
       <thead><tr><th>Sesión</th><th>Acción acordada</th><th>Responsable</th><th>Estado</th></tr></thead>
       <tbody>
         {[...paerSemanal].reverse().flatMap(({ semana, resultado }) => [

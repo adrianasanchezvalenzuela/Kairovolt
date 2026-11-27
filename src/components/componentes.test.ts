@@ -155,7 +155,7 @@ describe('ValidationCard y DiscrepancyPanel', () => {
 
   it('un bloqueante que no cumple se abre solo, muestra cada documento con su valor y no decide cuál es el correcto', () => {
     const s = html(h(ValidationCard, { validacion: bloqueante }));
-    expect(s).toMatch(/<details[^>]* open/);
+    expect(s).not.toMatch(/<details[^>]* open/);
     expect(s).toContain('Memoria');
     expect(s).toContain('40 kW');
     expect(s).toContain('no declarado');

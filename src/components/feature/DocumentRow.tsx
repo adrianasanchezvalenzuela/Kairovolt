@@ -48,7 +48,7 @@ export interface DocumentTableProps {
 export function DocumentTable({ etiqueta, children, conAcciones = false, vacio }: DocumentTableProps) {
   return (
     <div className="kv-tabla-scroll">
-      <table aria-label={etiqueta}>
+      <table className="kv-tabla-compacta" aria-label={etiqueta}>
         <thead>
           <tr>
             <th scope="col">Documento</th><th scope="col">Tipo</th><th scope="col">Canal</th><th scope="col">Estado</th><th scope="col">Archivo</th>
