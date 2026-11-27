@@ -46,6 +46,7 @@ const Configuracion = lazy(() => import('@/pages/Configuracion').then((m) => ({ 
 const PortalDemos = import.meta.env.DEV ? lazy(() => import('@/pages/portal/PortalDemos').then((m) => ({ default: m.PortalDemos }))) : null;
 const IdcDemo = import.meta.env.DEV ? lazy(() => import('@/pages/IdcDemo').then((m) => ({ default: m.IdcDemo }))) : null;
 const PortalRevisionDemo = import.meta.env.DEV ? lazy(() => import('@/pages/portal/PortalRevisionDemo').then((m) => ({ default: m.PortalRevisionDemo }))) : null;
+const BandejaIDCPreview = import.meta.env.DEV ? lazy(() => import('@/pages/BandejaIDCPreview').then((m) => ({ default: m.BandejaIDCPreview }))) : null;
 
 /** Las pantallas del trámite posterior (contratos, instalación, recorrido, expediente final) solo existen en los demos 4 a 6. */
 function SoloTramite({ children }: { children: React.ReactNode }) {
@@ -58,6 +59,9 @@ const Componentes = import.meta.env.DEV ? lazy(() => import('@/pages/Componentes
 
 export function App() {
   const demoLocal = import.meta.env.DEV && (window.location.pathname.startsWith('/demo/portal') || window.location.pathname.startsWith('/demo/idc'));
+  if (BandejaIDCPreview && window.location.pathname === '/bandeja/demo') {
+    return <Suspense fallback={null}><BandejaIDCPreview /></Suspense>;
+  }
   return (
     <FuenteDatosProvider>
     <BrowserRouter basename={demoLocal ? '/demo' : '/'}>
