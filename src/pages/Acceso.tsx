@@ -38,7 +38,7 @@ export function Acceso() {
     setError(null);
     const r = await f();
     setEnviando(false);
-    if (r === 'ok') navigate('/');
+    if (r === 'ok') navigate('/panel');
     else { setError(mensajes[r]); limpiar(); }
   };
 

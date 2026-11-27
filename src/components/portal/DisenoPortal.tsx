@@ -1,12 +1,16 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { confirmarSalida } from '@/hooks/salida';
 import { ArrowUpRight, SunMedium } from 'lucide-react';
 
-export function MarcaPortal() {
-  return <div className="kv-cliente-marca">
+/** Logo de KairóVolt. Por defecto es un enlace al inicio público (con aviso si hay un formulario sin enviar). */
+export function MarcaPortal({ enlace = true }: { enlace?: boolean }) {
+  const contenido = <>
     <img className="kv-cliente-marca__logo" src="/brand/kairovolt-logo.svg" alt="" width="42" height="42" />
     <div><strong>KairóVolt</strong><small>IDC Sistemas Eléctricos</small></div>
-  </div>;
+  </>;
+  if (!enlace) return <div className="kv-cliente-marca">{contenido}</div>;
+  return <a href="/" className="kv-cliente-marca kv-cliente-marca--enlace" aria-label="KairóVolt, volver al inicio" onClick={(e) => { if (!confirmarSalida()) e.preventDefault(); }}>{contenido}</a>;
 }
 
 export function EnergiaPortal({ className }: { className?: string }) {

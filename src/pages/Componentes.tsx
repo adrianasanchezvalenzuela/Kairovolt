@@ -46,7 +46,7 @@ export function Componentes() {
 
   return (
     <>
-      <PageHeader titulo="Sistema de componentes" meta="Galería de desarrollo. No se incluye en producción." migas={[{ etiqueta: 'Proyectos', to: '/' }, { etiqueta: 'Componentes' }]} acciones={<Boton variante="primario">Acción principal</Boton>} />
+      <PageHeader titulo="Sistema de componentes" meta="Galería de desarrollo. No se incluye en producción." migas={[{ etiqueta: 'Proyectos', to: '/panel' }, { etiqueta: 'Componentes' }]} acciones={<Boton variante="primario">Acción principal</Boton>} />
 
       <h2>StatusBadge</h2>
       <p style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

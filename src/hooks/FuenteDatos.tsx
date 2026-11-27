@@ -7,7 +7,7 @@ import { puede } from '@/domain/usuarios/permisos';
 import type { ProyectoRepositorio } from '@/application/proyecto-repositorio';
 import type { SincronizacionRepositorio } from '@/application/sincronizacion';
 import {
-  integracionRepositorio, proyectoRepositorioMock, proyectoRepositorioZoho, sesionRepositorio, sincronizacionRepositorio,
+  catalogoRepositorio, integracionRepositorio, proyectoRepositorioMock, proyectoRepositorioZoho, sesionRepositorio, sincronizacionRepositorio,
 } from '@/infrastructure';
 
 interface Valor {
@@ -41,6 +41,8 @@ export function FuenteDatosProvider({ children }: { children: ReactNode }) {
   const valor = useMemo<Valor | null>(() => {
     if (!estado) return null;
     const { fuente, motivoMock } = elegirFuente(estado.integracion.zoho, estado.sesion);
+    // Modo demo aislado: fuente MOCK sin sesión real → catálogo local (el panel muestra el rótulo «Datos MOCK»).
+    catalogoRepositorio.usarLocal(fuente !== 'zoho' && !estado.sesion.autenticado);
     return {
       ...estado,
       fuente,

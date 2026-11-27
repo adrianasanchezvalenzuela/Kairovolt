@@ -41,9 +41,9 @@ function Panel({ folio }: { folio: string }) {
 
   return <div className="kvp kv-idc">
     <header className="kv-idc__barra">
-      <Link to="/" className="kv-idc__marca"><img src="/brand/kairovolt-logo.svg" alt="" width="38" height="38" /><span><strong>KairóVolt</strong><small>Panel IDC · demostración</small></span></Link>
+      <Link to="/" className="kv-idc__marca" aria-label="KairóVolt, volver al inicio"><img src="/brand/kairovolt-logo.svg" alt="" width="38" height="38" /><span><strong>KairóVolt</strong><small>Revisión de expedientes · IDC</small></span></Link>
       <nav aria-label="Expediente de demostración">{FOLIOS.map((f) => <Link key={f.folio} to={'/idc/' + f.folio} aria-current={f.folio === folio ? 'page' : undefined}>{f.nombre}</Link>)}</nav>
-      <Link className="kv-idc__ver" to="/portal/demos"><ExternalLink size={15} aria-hidden="true" /> Ver como cliente</Link>
+      <span className="kv-idc__enlaces"><Link className="kv-idc__ver" to="/panel">Panel administrativo</Link><Link className="kv-idc__ver" to="/portal/demos"><ExternalLink size={15} aria-hidden="true" /> Ver como cliente</Link></span>
     </header>
 
     <main className="kv-idc__contenido">

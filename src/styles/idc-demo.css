@@ -40,3 +40,4 @@
 .kv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .kv-chips button { padding: 5px 11px; border: 1px solid var(--pc-borde); border-radius: 99px; background: #fff; font-size: 13px; cursor: pointer; }
 @media (max-width: 700px) { .kv-idc__grupo li { grid-template-columns: 1fr auto; } .kv-idc__grupo li > button { grid-column: 1 / -1; } .kv-idc__barra nav { margin: 0; } }
+.kv-idc__enlaces { display: inline-flex; gap: 16px; flex-wrap: wrap; }

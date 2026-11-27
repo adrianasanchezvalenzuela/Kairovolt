@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, Outlet, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Building2, CalendarDays, Check, ClipboardList, Clock3, Compass, Factory, FileCheck2, FileText, House, Image as ImagenIcono, Info, Lock, Mail, MapPin,
   MessageCircle, MessagesSquare, Paperclip, Phone, Send, Store, Sun, Trash2, Video,
 } from 'lucide-react';
 import { MarcaPortal } from '@/components/portal/DisenoPortal';
+import { confirmarSalida, marcarFormularioSucio } from '@/hooks/salida';
 import { IlusEntrada, IlusExito } from '@/components/portal/IlustracionesHero';
 import { NavegacionDemos } from '@/components/portal/NavegacionDemos';
 import { diasHabiles, HORAS, ocupado } from '@/prototipo/agenda';
+import { EMPRESA_DEMO, TELEFONO_DEMO, TITULAR_DEMO } from '@/data/personas-demo';
 import {
   accederSeguimiento, accionesConsulta, borradorVacio, leerConsulta, MAX_ARCHIVO, ORDEN_ESTADOS, quitarArchivo, registrarArchivo, tamanoLegible, TEXTO_ESTADO, TIPOS_ARCHIVO,
   URL_ADJUNTO, useConsultas, type AdjuntoRef, type BorradorConsulta, type CategoriaAdjunto, type ConsultaPreliminar, type EstadoConsulta, type MotivoConsulta, type TipoAsesoria,
@@ -18,10 +20,11 @@ const fechaHora = (iso: string) => new Intl.DateTimeFormat('es-MX', { day: 'nume
 
 // ───────────────────────── Marco público ─────────────────────────
 export function ConsultaLayout() {
-  const demo = import.meta.env.DEV && window.location.pathname.startsWith('/demo/portal');
+  const { pathname } = useLocation();
+  const demo = import.meta.env.DEV && window.location.pathname.startsWith('/demo/portal') && pathname.includes('/portal/consulta');
   return <div className="kvp kv-co">
-    <header className="kv-co__barra"><Link to="/portal" aria-label="Inicio del portal"><MarcaPortal /></Link>
-      {demo ? <NavegacionDemos /> : <span className="kv-cliente-demo">DEMO</span>}</header>
+    <header className="kv-co__barra"><MarcaPortal />
+      {demo ? <NavegacionDemos /> : <a href="/" className="kv-co-inicio" onClick={(e) => { if (!confirmarSalida()) e.preventDefault(); }}>Volver al inicio</a>}</header>
     <main className="kv-co__contenido" id="contenido"><Outlet /></main>
     <footer className="kv-co__pie">Demostración con datos ficticios. No se envía información real ni se crea un folio formal.</footer>
   </div>;
@@ -106,13 +109,24 @@ export function Adjuntos({ categoria, titulo, Icono, valor, onCambio, multiple =
   </div>;
 }
 
+/** Datos de ejemplo (solo modo demostración): cumplen las validaciones, son editables y NO aceptan el consentimiento por el usuario. */
+const ejemploConsulta = (): BorradorConsulta => ({
+  ...borradorVacio(), motivo: 'interconectar', tipoInmueble: 'industrial', ubicacion: 'Hermosillo, Sonora', potencia: '40', nivelTension: 'media', etapa: 'propuesta',
+  descripcion: `Interconexión fotovoltaica de 40 kW en media tensión para ${EMPRESA_DEMO}.`, nombre: TITULAR_DEMO.nombre, correo: TITULAR_DEMO.correo, telefono: TELEFONO_DEMO,
+});
+const enModoDemo = () => import.meta.env.DEV && window.location.pathname.startsWith('/demo/portal');
+
 export function ConsultaAsistente() {
   const navegar = useNavigate();
   const [paso, setPaso] = useState(0);
-  const [b, setB] = useState<BorradorConsulta>(borradorVacio);
+  const [b, setB] = useState<BorradorConsulta>(() => enModoDemo() ? ejemploConsulta() : borradorVacio());
+  const [ejemplo, setEjemplo] = useState(enModoDemo);
+  const base = useRef(JSON.stringify({ ...b, adjuntos: [] }));
   const [intento, setIntento] = useState(false);
   const set = <K extends keyof BorradorConsulta>(k: K, v: BorradorConsulta[K]) => setB((x) => ({ ...x, [k]: v }));
   useEffect(() => { window.scrollTo({ top: 0 }); }, [paso]);
+  useEffect(() => { marcarFormularioSucio(JSON.stringify({ ...b, adjuntos: [] }) !== base.current || b.adjuntos.length > 0); }, [b]);
+  useEffect(() => () => marcarFormularioSucio(false), []);
 
   const correoOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.correo.trim());
   const errores = useMemo(() => [
@@ -122,11 +136,14 @@ export function ConsultaAsistente() {
     !b.nombre.trim() ? 'Escribe tu nombre.' : !correoOk ? 'Escribe un correo válido.' : !b.consentimientoContacto ? 'Necesitamos tu consentimiento para contactarte.' : '',
   ], [b, correoOk]);
 
-  function siguiente() { setIntento(true); if (errores[paso]) return; setIntento(false); if (paso < 3) setPaso(paso + 1); else { accionesConsulta.enviar(b); navegar('/portal/consulta/enviada'); } }
+  function siguiente() { setIntento(true); if (errores[paso]) return; setIntento(false); if (paso < 3) setPaso(paso + 1); else { accionesConsulta.enviar(b); marcarFormularioSucio(false); navegar('/portal/consulta/enviada'); } }
   const err = intento && errores[paso];
 
   return <div className="kv-co-asistente">
-    <Link to="/portal" className="kv-co-volver"><ArrowLeft size={16} aria-hidden="true" /> Volver</Link>
+    <Link to="/" className="kv-co-volver" onClick={(e) => { if (!confirmarSalida()) e.preventDefault(); }}><ArrowLeft size={16} aria-hidden="true" /> Volver al inicio</Link>
+    {enModoDemo() && <div className="kv-ejemplo">{ejemplo && <span className="kv-ejemplo__etiqueta">Datos de ejemplo precargados</span>}
+      <button type="button" onClick={() => { setB(ejemploConsulta()); setEjemplo(true); setIntento(false); }}>Restablecer datos de ejemplo</button>
+      <button type="button" onClick={() => { setB(borradorVacio()); setEjemplo(false); setIntento(false); }}>Limpiar formulario</button></div>}
     <ol className="kv-co-pasos" aria-label="Progreso">{PASOS.map((p, i) => <li key={p} data-estado={i < paso ? 'hecho' : i === paso ? 'actual' : 'pendiente'} aria-current={i === paso ? 'step' : undefined}><span>{i < paso ? <Check size={14} aria-hidden="true" /> : i + 1}</span><b>{p}</b></li>)}</ol>
 
     {paso === 0 && <section className="kv-co-paso"><h1>¿Qué tienes en mente?</h1><p className="kv-co-sub">Elige lo que más se parezca a tu situación. Es solo un motivo de consulta: después lo platicamos.</p>
@@ -165,8 +182,8 @@ export function ConsultaAsistente() {
 
     {err && <p className="kv-co-error" role="alert">{err}</p>}
     <div className="kv-co-nav">
-      <button type="button" className="kvp-boton kvp-boton--suave" disabled={paso === 0} onClick={() => setPaso(paso - 1)}><ArrowLeft size={16} aria-hidden="true" /> Atrás</button>
-      <button type="button" className="kvp-boton kvp-boton--grande" onClick={siguiente}>{paso === 3 ? <>Enviar mi consulta <Send size={17} aria-hidden="true" /></> : <>Continuar <ArrowRight size={17} aria-hidden="true" /></>}</button></div>
+      <button type="button" className="kvp-boton kvp-boton--suave" disabled={paso === 0} onClick={() => setPaso(paso - 1)}><ArrowLeft size={16} aria-hidden="true" /> Anterior</button>
+      <button type="button" className="kvp-boton kvp-boton--grande" onClick={siguiente}>{paso === 3 ? <>Enviar mi consulta <Send size={17} aria-hidden="true" /></> : <>Siguiente <ArrowRight size={17} aria-hidden="true" /></>}</button></div>
   </div>;
 }
 
@@ -287,4 +304,14 @@ export function ConsultaAsesoria() {
           <button type="button" className="kvp-boton kvp-boton--grande" disabled={!hora} onClick={() => accionesConsulta.solicitarAsesoria(c.idPreliminar, tipo, fecha, hora, nota)}>Solicitar asesoría <ArrowRight size={17} aria-hidden="true" /></button></div></>}
     <p className="kv-co-nota">Los horarios son ficticios y la solicitud queda pendiente de confirmación.</p>
   </div>;
+}
+
+// ───────────────────────── Cierre del recorrido ─────────────────────────
+export function ConsultaFin() {
+  return <div className="kv-co-exito"><section className="kv-co-hero kv-co-hero--exito"><div className="kv-co-hero__texto"><span className="kv-co-etiqueta">Recorrido finalizado</span>
+    <h1>Gracias por recorrer KairóVolt.</h1><p>Viste el camino completo de un proyecto de interconexión, de la primera consulta a la conexión con la red. Elige cómo quieres continuar.</p></div>
+    <IlusExito className="kv-co-hero__ilus" /></section>
+    <div className="kv-co-acciones"><Link className="kvp-boton kvp-boton--grande" to="/portal/demos">Volver a explorar los escenarios <ArrowRight size={17} aria-hidden="true" /></Link>
+      <a className="kvp-boton kvp-boton--suave" href="/">Regresar al inicio empresarial</a>
+      <Link className="kvp-boton kvp-boton--suave" to="/idc/KV-2026-005">Conocer la perspectiva de IDC</Link></div></div>;
 }

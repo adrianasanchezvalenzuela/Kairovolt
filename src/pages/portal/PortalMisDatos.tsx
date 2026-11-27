@@ -7,6 +7,11 @@ import { AlertPanel } from '@/components/ui/AlertPanel';
 import { Boton } from '@/components/ui/Boton';
 import { useVistaPortal } from '@/hooks/PortalContexto';
 import { datosPortal } from '@/infrastructure/portal-http';
+import { REPRESENTANTE_DEMO, TESTIGOS_DEMO, TITULAR_DEMO } from '@/data/personas-demo';
+import { marcarFormularioSucio } from '@/hooks/salida';
+
+/** Datos de ejemplo (solo modo demostración): satisfacen las validaciones y siguen siendo editables. */
+const ejemploDatos = (): DatosParticipantes => ({ tipoTitular: 'fisica', titular: TITULAR_DEMO.nombre, tramita: 'apoderado', representante: '', apoderado: REPRESENTANTE_DEMO.nombre, testigos: [TESTIGOS_DEMO[0].nombre, TESTIGOS_DEMO[1].nombre] });
 
 const pasos = ['Titular', 'Representación', 'Testigos', 'Confirmación'];
 const ayudas = ['Elige el tipo de titular y captura su nombre o razón social.',
@@ -24,6 +29,9 @@ export function PortalMisDatos() {
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [intento, setIntento] = useState(0);
+  const [conEjemplo, setConEjemplo] = useState(false);
+  const [base, setBase] = useState(JSON.stringify(datosIniciales));
+  useEffect(() => { marcarFormularioSucio(JSON.stringify(datos) !== base); return () => marcarFormularioSucio(false); }, [datos, base]);
 
   useEffect(() => {
     if (!permisos.editarParticipantes) return;
@@ -31,11 +39,13 @@ export function PortalMisDatos() {
     void datosPortal().then((r) => {
       if (!vigente) return;
       setVersion(r?.version ?? 0);
-      setDatos(r?.datos ?? datosIniciales);
+      const cargados = r?.datos ?? datosIniciales;
+      if (demo && !r?.confirmado && !cargados.titular) { const ej = ejemploDatos(); setDatos(ej); setBase(JSON.stringify(ej)); setConEjemplo(true); }
+      else { setDatos(cargados); setBase(JSON.stringify(cargados)); }
       setConfirmado(r?.confirmado ?? false);
     }).catch((e: Error) => { if (vigente) setError(e.message); });
     return () => { vigente = false; };
-  }, [permisos.editarParticipantes, intento]);
+  }, [permisos.editarParticipantes, intento, demo]);
 
   const actualizar = (cambio: Partial<DatosParticipantes>) => {
     setDatos((d) => ({ ...d, ...cambio }));
@@ -57,6 +67,7 @@ export function PortalMisDatos() {
       const r = await datosPortal({ datos, version, confirmado: paso === 3 });
       if (!r) throw new Error('El servidor no confirmó el guardado.');
       setDatos(r.datos);
+      setBase(JSON.stringify(r.datos));
       setVersion(r.version);
       setConfirmado(r.confirmado);
       setMensaje(r.confirmado ? 'Datos confirmados y guardados.' : 'Avance guardado.');
@@ -90,6 +101,9 @@ export function PortalMisDatos() {
         setError(''); setMensaje(''); setVersion(null); setIntento(intento + 1);
       }}>Cargar versión guardada</Boton>}>{error}</AlertPanel>}
       {mensaje && <p role="status">{mensaje}</p>}
+      {demo && version !== null && !confirmado && <div className="kv-ejemplo">{conEjemplo && <span className="kv-ejemplo__etiqueta">Datos de ejemplo precargados</span>}
+        <button type="button" onClick={() => { setDatos(ejemploDatos()); setConEjemplo(true); setMensaje(''); }}>Restablecer datos de ejemplo</button>
+        <button type="button" onClick={() => { setDatos(datosIniciales); setConEjemplo(false); setMensaje(''); }}>Limpiar formulario</button></div>}
       {version !== null && <form onSubmit={(e) => void guardar(e)}>
         <fieldset disabled={ocupado}>
           <legend>{pasos[paso]}</legend>
@@ -128,8 +142,8 @@ export function PortalMisDatos() {
           </>}
         </fieldset>
         <div className="kvp-mis-datos__acciones">
-          {paso > 0 && <Boton type="button" disabled={ocupado} onClick={() => setPaso(paso - 1)}>Atrás</Boton>}
-          <Boton type="submit" variante="primario" cargando={ocupado} disabled={paso === 3 && confirmado}>{ocupado ? 'Guardando…' : paso === 3 ? 'Confirmar datos' : 'Guardar y continuar'}</Boton>
+          {paso > 0 && <Boton type="button" disabled={ocupado} onClick={() => setPaso(paso - 1)}>Anterior</Boton>}
+          <Boton type="submit" variante="primario" cargando={ocupado} disabled={paso === 3 && confirmado}>{ocupado ? 'Guardando…' : paso === 3 ? 'Confirmar datos' : 'Guardar y siguiente'}</Boton>
         </div>
       </form>}
       </div>

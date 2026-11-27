@@ -22,8 +22,8 @@ export interface DatosSolicitud {
 }
 
 export const SOLICITUD_FIJA = {
-  titularDemo: 'Roberto Alfonso Quiroz Mendívil',
-  contactoDemo: 'Lucía Fernanda Navarro Ibarra',
+  titularDemo: 'Alejandro Mendoza Ruiz',
+  contactoDemo: 'Mariana Torres López',
   puestoDemo: 'Apoderada',
   domicilio: {
     calle: 'Calle Ejemplo', numExt: '100', numInt: '', cp: '83000', colonia: 'Colonia Ejemplo',

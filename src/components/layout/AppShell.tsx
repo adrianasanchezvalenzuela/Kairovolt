@@ -42,7 +42,7 @@ export function AppShell() {
   const puedeIniciar = sesion.loginHabilitado; // el login no depende de Zoho: también da acceso a la gestión de usuarios
 
   const secciones: SeccionNav[] = [
-    { titulo: 'Operación', items: [{ to: '/', etiqueta: 'Panel', icono: '◧', exacto: true }, { to: '/proyectos', etiqueta: 'Proyectos', icono: '▤' }] },
+    { titulo: 'Operación', items: [{ to: '/panel', etiqueta: 'Panel', icono: '◧', exacto: true }, { to: '/proyectos', etiqueta: 'Proyectos', icono: '▤' }] },
     { titulo: 'Control', items: [
       { to: '/documentos', etiqueta: 'Documentos', icono: '▭' }, { to: '/validaciones', etiqueta: 'Validaciones', icono: '✓' }, { to: '/cronograma', etiqueta: 'Cronograma', icono: '▦' },
       ...(puede(usuario?.rol, 'gestionar_validaciones') ? [{ to: '/bandeja', etiqueta: 'Bandeja IDC', icono: '▤' }] : []),
@@ -55,15 +55,19 @@ export function AppShell() {
         ...(usuario ? [{ to: '/cuenta', etiqueta: 'Mi cuenta', icono: '☻' }] : []),
       ] }]
       : []),
-    { titulo: 'Clientes', items: [{ to: '/portal', etiqueta: 'Portal del cliente', icono: '↗' }] },
+    { titulo: 'Clientes', items: [
+      { to: '/portal', etiqueta: 'Portal del cliente', icono: '↗' },
+      // Vista especializada de revisión de expedientes (modo demostración): comparte estado con el portal del cliente.
+      ...(import.meta.env.DEV ? [{ to: '/idc/KV-2026-005', etiqueta: 'Revisión documental de clientes', icono: '☑' }] : []),
+    ] },
   ];
 
   return (
     <div className="kv-shell">
       <a href="#contenido" className="kv-salto">Saltar al contenido</a>
-      <Sidebar marca="KairóVolt" subtitulo="Panel interno IDC" secciones={secciones} abierto={menuAbierto} onCerrar={() => setMenuAbierto(false)} pie="IDC Sistemas Eléctricos · Hermosillo" />
+      <Sidebar inicio="/panel" marca="KairóVolt" subtitulo="Panel interno IDC" secciones={secciones} abierto={menuAbierto} onCerrar={() => setMenuAbierto(false)} pie="IDC Sistemas Eléctricos · Hermosillo" />
       <div className="kv-shell__principal">
-        <Topbar marca={{ texto: 'KairóVolt', to: '/' }} onMenu={() => setMenuAbierto((a) => !a)} menuAbierto={menuAbierto}>
+        <Topbar marca={{ texto: 'KairóVolt', to: '/panel' }} onMenu={() => setMenuAbierto((a) => !a)} menuAbierto={menuAbierto}>
           {fuente === 'zoho'
             ? <StatusBadge tono="ok" variante="suave" punto>Datos reales · Zoho CRM + Projects</StatusBadge>
             : <StatusBadge tono="alerta" variante="suave" punto>Datos MOCK{motivoMock ? ` · ${motivoUi[motivoMock]}` : ''}</StatusBadge>}

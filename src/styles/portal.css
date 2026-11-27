@@ -993,3 +993,37 @@
 @media (max-width: 760px) { .kv-ld-pie__grid { grid-template-columns: 1fr; } }
 .kv-ld-menu { position: absolute; top: 100%; left: 0; right: 0; background: var(--pc-fondo); box-shadow: 0 18px 30px rgb(16 43 64 / 14%); }
 .kv-ld-demo .kv-demo-nav { text-transform: none; letter-spacing: 0; }
+a.kv-cliente-marca--enlace { text-decoration: none; color: inherit; border-radius: 12px; transition: opacity .15s; } a.kv-cliente-marca--enlace:hover { opacity: .85; }
+
+/* Landing: demostraciones destacadas y tarjetas de acceso */
+.kv-ld-nav__demos { display: inline-flex; gap: 6px; align-items: center; border: 1.5px solid var(--pc-ambar); color: var(--pc-navy) !important; background: #fff7e0; }
+.kv-ld-nav__demos:hover { background: var(--pc-ambar) !important; }
+.kv-ld-demos { background: var(--pc-navy); color: #fff; padding-block: clamp(44px, 6vw, 84px); border-top: 1px solid rgb(255 255 255 / 8%); scroll-margin-top: 70px; }
+.kv-ld-demos__grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(24px, 5vw, 64px); align-items: center; }
+.kv-ld-demos__texto { display: grid; gap: 18px; justify-items: start; } .kv-ld-demos h2 { color: #fff; max-width: 14ch; }
+.kv-ld-demos p { color: #c4d6dc; font-size: clamp(16px, 1.5vw, 19px); max-width: 50ch; } .kv-ld-demos small { color: #9fb7c0; }
+.kv-ld-demos__cifras { list-style: none; padding: 0; display: flex; gap: clamp(16px, 3vw, 36px); flex-wrap: wrap; }
+.kv-ld-demos__cifras li { display: grid; } .kv-ld-demos__cifras b { font: 600 clamp(34px, 4vw, 52px)/1 var(--kv-mono); color: var(--pc-ambar); letter-spacing: -.04em; }
+.kv-ld-demos__cifras span { font-size: 13px; color: #c4d6dc; max-width: 14ch; }
+.kv-ld-boton--grande { padding: 18px 32px; font-size: 18px; }
+.kv-ld-demos__arte ol { list-style: none; padding: 0; display: grid; gap: 8px; position: relative; }
+.kv-ld-demos__arte ol::before { content: ''; position: absolute; left: 22px; top: 18px; bottom: 18px; border-left: 3px dashed rgb(242 189 85 / 55%); }
+.kv-ld-demos__arte li { position: relative; display: flex; gap: 14px; align-items: center; padding: 8px 14px 8px 8px; border-radius: 16px; background: rgb(255 255 255 / 7%); font-weight: 650; }
+.kv-ld-demos__arte li span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--pc-ambar); color: var(--pc-navy); font: 700 12px var(--kv-mono); z-index: 1; }
+.kv-ld-acceso__cab { display: grid; gap: 8px; margin-bottom: 26px; } .kv-ld-acceso__cab h2 { font-size: clamp(28px, 3.6vw, 44px); max-width: 22ch; }
+.kv-ld-acceso__cab p { color: var(--pc-tinta-suave); font-size: 17px; max-width: 56ch; }
+.kv-ld-caminos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 14px; }
+.kv-ld-camino { display: grid; gap: 8px; align-content: start; justify-items: start; padding: clamp(20px, 2.6vw, 30px); border-radius: 26px; }
+.kv-ld-camino h3 { font-size: clamp(20px, 2vw, 25px); letter-spacing: -.03em; margin-top: 8px; } .kv-ld-camino p { opacity: .85; margin-bottom: 8px; max-width: 40ch; }
+.kv-ld-camino__ico { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 15px; }
+.kv-ld-camino--proyecto { background: #DCE7ED; } .kv-ld-camino--proyecto .kv-ld-camino__ico { background: #fff; color: var(--pc-teal); }
+.kv-ld-camino--nuevo { background: var(--pc-teal); color: #fff; } .kv-ld-camino--nuevo .kv-ld-camino__ico { background: rgb(255 255 255 / 16%); color: var(--pc-ambar); }
+.kv-ld-camino--nuevo .kvp-boton { background: var(--pc-ambar); color: var(--pc-navy); }
+@media (max-width: 860px) { .kv-ld-demos__grid, .kv-ld-caminos { grid-template-columns: 1fr; } .kv-ld-demos__arte ol { grid-template-columns: 1fr 1fr; } .kv-ld-demos__arte ol::before { display: none; } }
+.kv-sel__rejilla { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.kv-sel__tarjeta--previa { border: 2px solid var(--pc-teal); } .kv-sel__tarjeta--previa .kv-sel__icono { background: var(--pc-salvia); color: var(--pc-teal-oscuro); } .kv-sel__tarjeta--previa .kv-sel__numero { color: var(--pc-teal); } .kv-sel__tarjeta--previa .kv-sel__boton { background: var(--pc-teal); }
+.kv-co-inicio { color: var(--pc-teal-oscuro); font-weight: 700; text-decoration: none; padding: 8px 12px; border-radius: 10px; } .kv-co-inicio:hover { background: var(--pc-hielo); }
+.kv-demo-nav__indice { max-width: 26ch; white-space: normal; line-height: 1.2; }
+.kv-ejemplo { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.kv-ejemplo__etiqueta { padding: 4px 10px; border-radius: 99px; background: var(--pc-aviso); color: #664709; font-weight: 750; }
+.kv-ejemplo button { border: 0; background: none; color: var(--pc-teal-oscuro); font-weight: 650; text-decoration: underline; cursor: pointer; padding: 4px 2px; }
