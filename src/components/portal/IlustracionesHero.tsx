@@ -157,3 +157,19 @@ export function IlusExito({ className, tono }: PropsIlus) {
     <path d="m70 40 5-11 5 11 11 5-11 5-5 11-5-11-11-5Z" fill={AM} />
   </Marco>;
 }
+
+/** Marcador vectorial del hero empresarial mientras no exista la fotografía real del equipo (public/brand/idc-equipo.jpg). */
+export function IlusEquipo({ className }: { className?: string }) {
+  return <svg aria-hidden="true" focusable="false" className={className} viewBox="0 0 400 500" fill="none" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="400" height="500" fill="#17384f" />
+    <circle cx="316" cy="96" r="52" fill={AM} opacity=".95" />
+    <path d="M0 410h400" stroke="#8FBDBE" strokeOpacity=".5" strokeWidth="2" />
+    <rect x="82" y="120" width="236" height="290" rx="14" fill="#e8f0f2" stroke="#dbe7ed" strokeWidth="3" />
+    <rect x="98" y="138" width="204" height="120" rx="8" fill="#102B40" />
+    {[0, 1, 2, 3, 4, 5].map((i) => <rect key={i} x={112 + i * 30} y="156" width="18" height="46" rx="3" fill="#CDE1D9" />)}
+    {[0, 1, 2, 3, 4, 5].map((i) => <circle key={i} cx={121 + i * 30} cy="226" r="5" fill={i % 3 === 0 ? AM : '#79B1B3'} />)}
+    <rect x="98" y="272" width="204" height="124" rx="8" fill="#cfdde3" /><path d="M116 296h110M116 318h150M116 340h90" stroke="#102B40" strokeWidth="5" opacity=".35" />
+    <g><circle cx="150" cy="320" r="24" fill="#f0c9a4" /><path d="M124 316a26 26 0 0 1 52 0Z" fill={AM} /><rect x="120" y="344" width="60" height="110" rx="20" fill="#176B70" /></g>
+    <g><circle cx="250" cy="330" r="24" fill="#d8b08c" /><path d="M224 326a26 26 0 0 1 52 0Z" fill="#fff" /><rect x="220" y="354" width="60" height="100" rx="20" fill="#CDE1D9" /><rect x="262" y="372" width="34" height="46" rx="5" fill="#102B40" /></g>
+  </svg>;
+}

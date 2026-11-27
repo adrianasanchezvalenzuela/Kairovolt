@@ -20,7 +20,8 @@ import { ProyectoDetalle } from '@/pages/ProyectoDetalle';
 import { PortalProveedor, useVistaPortal } from '@/hooks/PortalContexto';
 import { esTramiteDemo } from '@/data/demos-portal';
 import { PortalAcceso } from '@/pages/portal/PortalAcceso';
-import { ConsultaAsesoria, ConsultaAsistente, ConsultaEnviada, ConsultaLayout, ConsultaSeguimiento, PortalEntrada } from '@/pages/portal/consulta/Consulta';
+import { ConsultaAsesoria, ConsultaAsistente, ConsultaEnviada, ConsultaLayout, ConsultaSeguimiento } from '@/pages/portal/consulta/Consulta';
+import { Landing } from '@/pages/portal/landing/Landing';
 import { PortalAvisos } from '@/pages/portal/PortalAvisos';
 import { PortalHistorial } from '@/pages/portal/PortalHistorial';
 import { PortalInicio } from '@/pages/portal/PortalInicio';
@@ -97,8 +98,8 @@ export function App() {
           </Route>
         </Route>
         <Route path="portal" element={<PortalProveedor />}>
+          <Route index element={<Landing />} />
           <Route element={<ConsultaLayout />}>
-            <Route index element={<PortalEntrada />} />
             <Route path="consulta" element={<ConsultaAsistente />} />
             <Route path="consulta/enviada" element={<ConsultaEnviada />} />
             <Route path="consulta/seguimiento" element={<ConsultaSeguimiento />} />
