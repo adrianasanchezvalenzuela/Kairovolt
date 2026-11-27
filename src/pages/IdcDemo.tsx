@@ -3,6 +3,7 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { ArrowRight, Check, ClipboardCheck, ExternalLink, FileSearch, Mail, MessageSquareWarning, RotateCcw, Send, ShieldCheck, Upload } from 'lucide-react';
 import { Cargador, fecha, Pastilla, VisorArchivo, Versiones } from '@/components/portal/DocumentosPorResponsable';
 import { Dialogo } from '@/components/ui/Dialogo';
+import { registrarArchivoSubido } from '@/demo/archivos-demo';
 import {
   accionesDemo, DOCUMENTOS_DEMO, definicion, esFavorable, esFolioDocumentalDemo, FOLIO_DEMO_ENTREGA, FOLIO_DEMO_PREPARACION,
   LEYENDA_DEMO, textoEstado, useExpedienteDemo, type DefDocumento, type DocEstado, type Grupo,
@@ -101,7 +102,7 @@ function Gestion({ def, doc, folio, onListo }: { def: DefDocumento; doc: DocEsta
   return <div className="kv-gr-detalle kv-idc__gestion">
     <p><Pastilla id={def.id} estado={e} /> <span className="kv-suave">{textoEstado(def.id, e)}</span></p>
 
-    {version && <VisorArchivo def={def} version={version} />}
+    {version && <VisorArchivo def={def} version={version} doc={doc} folio={folio} />}
 
     {def.grupo === 'cliente' && e === 'pendiente' && <p className="kv-suave">Esperando que el cliente suba este documento.</p>}
     {def.grupo === 'cliente' && e === 'por_corregir' && <p className="kv-suave">Esperando la versión corregida del cliente. Comentario enviado: «{doc.observacion?.texto}»</p>}
@@ -128,7 +129,7 @@ function Gestion({ def, doc, folio, onListo }: { def: DefDocumento; doc: DocEsta
 
     {def.grupo === 'idc' && <section className="kv-idc__decision">
       <h3>{doc.versiones.length ? 'Sustituir archivo' : 'Cargar archivo'}</h3>
-      <Cargador etiqueta={doc.versiones.length ? 'Sube una nueva versión (se conserva el historial)' : 'Sube el archivo técnico'} boton="Cargar" onEnviar={(a) => { accionesDemo.cargarTecnico(folio, def.id, a); onListo(`${def.corto}: archivo cargado (en revisión técnica). Márcalo disponible para que el cliente lo vea.`); }} />
+      <Cargador etiqueta={doc.versiones.length ? 'Sube una nueva versión (se conserva el historial)' : 'Sube el archivo técnico'} boton="Cargar" onEnviar={(a, f) => { accionesDemo.cargarTecnico(folio, def.id, a); if (f) registrarArchivoSubido(folio, def.id, doc.versiones.length + 1, f); onListo(`${def.corto}: archivo cargado (en revisión técnica). Márcalo disponible para que el cliente lo vea.`); }} />
       <div className="kv-idc__botones">
         {e === 'en_revision_tecnica' && <button type="button" className="kvp-boton" onClick={() => { accionesDemo.marcarDisponible(folio, def.id); onListo(`${def.corto} disponible. El cliente recibió un aviso y un correo simulado.`); }}><Check size={16} aria-hidden="true" /> Marcar como disponible</button>}
         {e === 'disponible' && <button type="button" className="kvp-boton kvp-boton--suave" onClick={() => { accionesDemo.marcarEnPreparacion(folio, def.id); onListo(`${def.corto} volvió a preparación.`); }}>Volver a preparación</button>}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  ArrowRight, Check, CircleAlert, Clock3, Download, FileText, Landmark, Printer, ShieldCheck, UserRound, Users, Wrench,
+  ArrowRight, Check, CircleAlert, Clock3, Download, FileText, Landmark, Maximize2, Printer, ShieldCheck, UserRound, Users, Wrench,
 } from 'lucide-react';
 import { PortadaPortal } from '@/components/portal/DisenoPortal';
 import { CartaDemoPortal } from '@/components/portal/CartaDemoPortal';
@@ -13,8 +13,11 @@ import {
   accionesDemo, DOCUMENTOS_DEMO, definicion, esFavorable, LEYENDA_DEMO, textoEstado, useExpedienteDemo,
   type DefDocumento, type DocEstado, type EstadoDemo, type Grupo, type VersionDemo,
 } from '@/demo/expediente-demo';
-import { descargarDocumentoDemo, urlDocumentoDemo } from '@/demo/pdf-demo';
+import { VisorDocumento, VistaArchivo } from '@/components/portal/VisorDocumento';
+import { ADJUNTOS_CARTA, archivoDeVersion, registrarArchivoSubido } from '@/demo/archivos-demo';
 import { useVistaPortal } from '@/hooks/PortalContexto';
+import { esFolioTramite, useTramiteDemo } from '@/demo/tramite-demo';
+import { documentosExpedienteFinal, type DocFinal } from '@/demo/pdf-tramite';
 
 const GRUPOS: { id: Grupo; titulo: string; subtitulo: string; Icono: typeof UserRound }[] = [
   { id: 'cliente', titulo: 'Tus documentos', subtitulo: 'Prepara tus documentos personales. Te acompañamos en cada paso.', Icono: UserRound },
@@ -50,37 +53,46 @@ function lineaEstado(def: DefDocumento, doc: DocEstado): string {
   return def.sirve;
 }
 
-export function VisorArchivo({ def, version }: { def: DefDocumento; version: VersionDemo }) {
-  const [url, setUrl] = useState('');
-  useEffect(() => {
-    let vivo = true; let u = '';
-    void urlDocumentoDemo(def, version).then((x) => { if (vivo) { u = x; setUrl(x); } else URL.revokeObjectURL(x); });
-    return () => { vivo = false; if (u) URL.revokeObjectURL(u); };
-  }, [def, version]);
+const RESPONSABLE: Record<Grupo, string> = { cliente: 'Cliente', conjunto: 'IDC prepara · el cliente firma', idc: 'IDC' };
+
+/** Vista previa real del archivo de demostración de la versión, con acceso al visor completo. */
+export function VisorArchivo({ def, version, doc, folio }: { def: DefDocumento; version: VersionDemo; doc: DocEstado; folio: string }) {
+  const [abierto, setAbierto] = useState(false);
+  const archivo = archivoDeVersion(folio, def.id, version);
+  const archivos = def.id === 'carta_poder' ? [archivo, ...ADJUNTOS_CARTA] : [archivo];
   return <div className="kv-gr-visor">
-    {url ? <iframe title={`Vista previa de ${def.corto}, versión ${version.n}`} src={url + '#toolbar=0&navpanes=0'} /> : <p className="kv-suave">Preparando vista previa…</p>}
+    <VistaArchivo archivo={archivo} alto={320} />
     <div className="kv-gr-visor__pie">
-      <span>Vista previa · v{version.n} · {version.archivo}</span>
-      <button type="button" className="kvp-boton kvp-boton--suave" onClick={() => void descargarDocumentoDemo(def, version)}><Download size={16} aria-hidden="true" /> Descargar</button>
+      <span>v{version.n} · {archivo.etiqueta}</span>
+      <span className="kv-gr-visor__botones">
+        <button type="button" className="kvp-boton kvp-boton--suave" onClick={() => setAbierto(true)}><Maximize2 size={16} aria-hidden="true" /> Ver documento</button>
+        <a className="kvp-boton kvp-boton--suave" href={archivo.ruta} download={archivo.ruta.split('/').pop()}><Download size={16} aria-hidden="true" /> Descargar</a>
+      </span>
     </div>
+    {def.id === 'carta_poder' && <small className="kv-suave">Incluye las identificaciones del representante y de los testigos (abre «Ver documento»).</small>}
     <small className="kv-suave">{LEYENDA_DEMO}.</small>
+    {abierto && <VisorDocumento onCerrar={() => setAbierto(false)} datos={{
+      titulo: def.nombre, estado: textoEstado(def.id, doc.estado), responsable: RESPONSABLE[def.grupo], version: version.n, cargadoEn: version.fecha,
+      validadoEn: esFavorable(doc.estado) ? doc.revisadoEn ?? version.fecha : undefined, archivos,
+    }} />}
   </div>;
 }
 
-export function Cargador({ etiqueta, boton, onEnviar }: { etiqueta: string; boton: string; onEnviar: (archivo: string) => void }) {
+export function Cargador({ etiqueta, boton, onEnviar }: { etiqueta: string; boton: string; onEnviar: (archivo: string, file?: File) => void }) {
   const [nombre, setNombre] = useState('');
+  const [file, setFile] = useState<File | undefined>();
   const [sobre, setSobre] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
   return <div className={'kv-gr-carga' + (sobre ? ' kv-gr-carga--sobre' : '')}
     onDragOver={(ev) => { ev.preventDefault(); setSobre(true); }} onDragLeave={() => setSobre(false)}
-    onDrop={(ev) => { ev.preventDefault(); setSobre(false); const f = ev.dataTransfer.files[0]; if (f) setNombre(f.name); }}>
+    onDrop={(ev) => { ev.preventDefault(); setSobre(false); const f = ev.dataTransfer.files[0]; if (f) { setNombre(f.name); setFile(f); } }}>
     <strong>{etiqueta}</strong>
     {nombre ? <p className="kv-gr-carga__archivo"><FileText size={16} aria-hidden="true" /> {nombre}</p> : <p className="kv-suave">Arrastra un archivo aquí o elígelo (PDF, JPG o PNG). En la demo no sale de tu equipo.</p>}
     <div className="kv-gr-carga__botones">
-      <input ref={entrada} type="file" hidden accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(ev) => { const f = ev.target.files?.[0]; if (f) setNombre(f.name); ev.target.value = ''; }} />
+      <input ref={entrada} type="file" hidden accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(ev) => { const f = ev.target.files?.[0]; if (f) { setNombre(f.name); setFile(f); } ev.target.value = ''; }} />
       <button type="button" className="kvp-boton kvp-boton--suave" onClick={() => entrada.current?.click()}>Elegir archivo</button>
-      <button type="button" className="kvp-boton kvp-boton--suave" onClick={() => setNombre('archivo-de-ejemplo.pdf')}>Usar archivo de ejemplo</button>
-      <button type="button" className="kvp-boton" disabled={!nombre} onClick={() => onEnviar(nombre)}>{boton}</button>
+      <button type="button" className="kvp-boton kvp-boton--suave" onClick={() => { setNombre('archivo-de-ejemplo.pdf'); setFile(undefined); }}>Usar archivo de ejemplo</button>
+      <button type="button" className="kvp-boton" disabled={!nombre} onClick={() => onEnviar(nombre, file)}>{boton}</button>
     </div>
   </div>;
 }
@@ -135,7 +147,7 @@ function Detalle({ def, doc, folio, onCerrar, onEnviado }: { def: DefDocumento; 
   useEffect(() => { setVer(doc.versiones.at(-1)?.n ?? 0); }, [doc.versiones.length]);
   const version = doc.versiones.find((x) => x.n === ver) ?? ultima;
   const e = doc.estado;
-  const enviar = (archivo: string, msg: string) => { accionesDemo.subirCliente(folio, def.id, archivo); onEnviado(msg); onCerrar(); };
+  const enviar = (archivo: string, msg: string, file?: File) => { accionesDemo.subirCliente(folio, def.id, archivo); if (file) registrarArchivoSubido(folio, def.id, doc.versiones.length + 1, file); onEnviado(msg); onCerrar(); };
 
   // ── Grupo 1: documentos personales ──
   if (def.grupo === 'cliente') return <div className="kv-gr-detalle">
@@ -153,9 +165,9 @@ function Detalle({ def, doc, folio, onCerrar, onEnviado }: { def: DefDocumento; 
     {(e === 'pendiente' || e === 'por_corregir') && <Cargador
       etiqueta={e === 'por_corregir' ? 'Sube la versión corregida' : 'Sube tu documento para que IDC lo revise'}
       boton={e === 'por_corregir' ? 'Enviar versión corregida' : 'Enviar a revisión'}
-      onEnviar={(a) => enviar(a, e === 'por_corregir' ? `Versión corregida enviada: ${def.corto} pasó a la versión ${doc.versiones.length + 1}.` : `${def.corto} enviado. IDC lo revisará pronto.`)} />}
+      onEnviar={(a, f) => enviar(a, e === 'por_corregir' ? `Versión corregida enviada: ${def.corto} pasó a la versión ${doc.versiones.length + 1}.` : `${def.corto} enviado. IDC lo revisará pronto.`, f)} />}
     {def.id === 'carta_poder' && (e === 'pendiente' || e === 'por_corregir') && <Acordeon titulo="Genera tu carta poder de demostración"><CartaDemoPortal /></Acordeon>}
-    {version && <VisorArchivo def={def} version={version} />}
+    {version && <VisorArchivo def={def} version={version} doc={doc} folio={folio} />}
     <GuiaCliente def={def} folioVista={v} />
     <Acordeon titulo="Historial de versiones"><Versiones def={def} doc={doc} onVer={setVer} activa={ver} /></Acordeon>
   </div>;
@@ -168,7 +180,7 @@ function Detalle({ def, doc, folio, onCerrar, onEnviado }: { def: DefDocumento; 
     {e === 'en_revision' && <Aviso tono="info" titulo="En revisión por IDC">Recibimos tu solicitud firmada. IDC la está revisando.</Aviso>}
     {e === 'prevalidada' && <Aviso tono="ok" titulo="Prevalidada por IDC">Revisión digital favorable. Recuerda llevar la solicitud firmada en tu carpeta física; la recepción física se registra aparte.</Aviso>}
     {e !== 'en_preparacion' && version && <>
-      <VisorArchivo def={def} version={version} />
+      <VisorArchivo def={def} version={version} doc={doc} folio={folio} />
       <Acordeon titulo="Revisa tus datos en la solicitud" abierto={e === 'lista_para_firmar'}>
         <dl className="kv-gr-datos">
           <dt>Solicitante</dt><dd>{datos.solicitante.nombre}</dd>
@@ -189,10 +201,10 @@ function Detalle({ def, doc, folio, onCerrar, onEnviado }: { def: DefDocumento; 
           <li>No llenes el recuadro «sello y firma — Centro de Atención»: es de CFE.</li>
           <li>Sube una foto o escaneo de la versión firmada.</li>
         </ol>
-        <button type="button" className="kvp-boton kvp-boton--suave" onClick={() => void descargarDocumentoDemo(def, version)}><Printer size={16} aria-hidden="true" /> Descargar para imprimir</button>
+        <a className="kvp-boton kvp-boton--suave" href={archivoDeVersion(folio, def.id, doc.versiones.find((x) => x.autor === 'idc') ?? version).ruta} download="solicitud-para-imprimir.pdf"><Printer size={16} aria-hidden="true" /> Descargar para imprimir</a>
       </Acordeon>
     </>}
-    {e === 'lista_para_firmar' && <Cargador etiqueta="Carga tu solicitud firmada" boton="Enviar solicitud firmada" onEnviar={(a) => enviar(a, 'Solicitud firmada enviada a revisión de IDC.')} />}
+    {e === 'lista_para_firmar' && <Cargador etiqueta="Carga tu solicitud firmada" boton="Enviar solicitud firmada" onEnviar={(a, f) => enviar(a, 'Solicitud firmada enviada a revisión de IDC.', f)} />}
     <Acordeon titulo="Formato de referencia y ejemplo anonimizado"><GuiaSolicitud soloReferencias /></Acordeon>
     <Acordeon titulo="Historial de versiones"><Versiones def={def} doc={doc} onVer={setVer} activa={ver} /></Acordeon>
   </div>;
@@ -205,12 +217,27 @@ function Detalle({ def, doc, folio, onCerrar, onEnviado }: { def: DefDocumento; 
     {e === 'en_preparacion' && <Aviso tono="info" titulo="En preparación por IDC">Nuestro equipo todavía lo está preparando. No tienes que hacer nada.</Aviso>}
     {e === 'en_revision_tecnica' && <Aviso tono="info" titulo="En revisión técnica">IDC lo está revisando antes de dejarlo disponible para ti.</Aviso>}
     {disponible && <Aviso tono="ok" titulo="Disponible para consultar">Puedes verlo y descargarlo. Si notas un dato incorrecto, repórtalo abajo.</Aviso>}
-    {disponible && ultima && <VisorArchivo def={def} version={ultima} />}
+    {disponible && ultima && <VisorArchivo def={def} version={ultima} doc={doc} folio={folio} />}
     {def.id === 'croquis' && <Acordeon titulo="Cómo se ve un croquis (ejemplo)"><IlustracionCroquis /></Acordeon>}
     {def.id !== 'croquis' && <Acordeon titulo="Cómo se ve un ejemplo"><GuiaVisualDocumento id={def.id} /></Acordeon>}
     {(disponible || doc.reportes.length > 0) && <Reporte folio={folio} def={def} doc={doc} etiqueta="Reportar un posible error" />}
     <p className="kv-suave kv-gr-solo">Estos archivos los carga y actualiza únicamente IDC.</p>
   </div>;
+}
+
+/** Documentos del trámite ante CFE (demos 4–6): aparecen a medida que se registra cada hito. */
+function GrupoCfe({ folio }: { folio: string }) {
+  const t = useTramiteDemo(folio);
+  const [docs, setDocs] = useState<DocFinal[]>([]);
+  const [visor, setVisor] = useState<DocFinal | null>(null);
+  useEffect(() => { let vivo = true; void documentosExpedienteFinal(folio, t).then((d) => { if (vivo) setDocs(d.filter((x) => x.id !== 'inicial' && x.disponible)); }); return () => { vivo = false; }; }, [folio, t]);
+  if (docs.length === 0) return null;
+  return <section className="kv-gr kv-gr--cfe" aria-labelledby="gr-cfe">
+    <header><span className="kv-gr__ico"><Landmark size={22} aria-hidden="true" /></span><div><h2 id="gr-cfe">Respuesta de CFE y contratos</h2><p>Documentos del trámite. Tu expediente inicial sigue arriba, ya validado.</p></div></header>
+    <ul>{docs.map((d) => <li key={d.id}><div className="kv-gr__info"><h3>{d.titulo}</h3><p>{d.detalle}</p></div><span className="kv-gr-pill kv-gr-pill--ok">Disponible</span>
+      <button type="button" className="kv-gr__accion" onClick={() => setVisor(d)}>Ver documento <ArrowRight size={16} aria-hidden="true" /></button></li>)}</ul>
+    {visor && <VisorDocumento onCerrar={() => setVisor(null)} datos={{ titulo: visor.titulo, estado: 'Disponible', responsable: 'CFE · registrado por IDC', cargadoEn: t.resolucion?.fecha, archivos: visor.archivos }} />}
+  </section>;
 }
 
 export function DocumentosPorResponsable() {
@@ -244,6 +271,8 @@ export function DocumentosPorResponsable() {
         </li>;
       })}</ul>
     </section>)}
+
+    {esFolioTramite(v.folio) && <GrupoCfe folio={v.folio} />}
 
     <p className="kv-cliente-legal"><Landmark size={16} aria-hidden="true" /> {LEYENDA_DEMO}. Los archivos y comentarios de esta pantalla son ficticios.</p>
 

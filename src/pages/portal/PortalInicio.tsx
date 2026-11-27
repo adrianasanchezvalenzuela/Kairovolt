@@ -11,9 +11,17 @@ import {
 import { pasosParticipantes } from '@/application/participantes';
 import { useVistaPortal } from '@/hooks/PortalContexto';
 import { elegibilidadConDemo } from '@/demo/expediente-demo';
-import { esCapturaDemo } from '@/data/demos-portal';
+import { esCapturaDemo, esTramiteDemo } from '@/data/demos-portal';
+import { HeroDemo, visualDeFolio } from '@/components/portal/demos-visual';
+import { InicioTramite } from '@/pages/portal/tramite/Tramite';
 
+/** Los demos 4 a 6 (trámite posterior a la entrega física) tienen su propio Inicio. */
 export function PortalInicio() {
+  const v = useVistaPortal();
+  return esTramiteDemo(v) ? <InicioTramite /> : <PortalInicioBase />;
+}
+
+function PortalInicioBase() {
   const v = useVistaPortal();
   const [captura, setCaptura] = useState<string | null>(null);
   const [confirmarDatos, setConfirmarDatos] = useState(false);
@@ -139,6 +147,13 @@ export function PortalInicio() {
     };
   }
 
+  const visual = v.demo ? visualDeFolio(v.folio) : undefined;
+  const docCorreccion = documentos?.find((d) => d.estado === 'rechazado');
+  const heroConCita = visual?.momento === 'visita' && !!citaActiva;
+  const heroRuta = heroConCita ? '/portal/visita' : visual?.momento === 'documentos' ? (docCorreccion ? accion.ruta : visual.accion.ruta) : visual?.momento === 'captura' ? accion.ruta : visual?.accion.ruta ?? accion.ruta;
+  const heroTexto = heroConCita ? 'Ver mi visita' : visual?.momento === 'documentos' && docCorreccion ? 'Corregir mi documento' : visual?.accion.texto ?? accion.boton;
+  const heroBanda = undefined;
+
   const resumenDocumentos = !documentos
     ? 'Documentos no disponibles'
     : expedientePreparadoVisita
@@ -147,6 +162,26 @@ export function PortalInicio() {
 
   return (
     <>
+      {visual ? <>
+        <HeroDemo visual={visual}
+          acciones={<EnlacePortal to={heroRuta}>{heroTexto}</EnlacePortal>}
+          banda={heroBanda} />
+        {visual.momento === 'documentos' && docCorreccion && (
+          <section className="kv-tr-obs" aria-label="Observación de IDC">
+            <strong>IDC dejó una observación en «{docCorreccion.nombre}»</strong>
+            {docCorreccion.detalle && <blockquote>«{docCorreccion.detalle}»</blockquote>}
+            <EnlacePortal to={'/portal/documentos?documento=' + encodeURIComponent(docCorreccion.id)} secundario>Corregir ese documento</EnlacePortal>
+          </section>
+        )}
+        {visual.momento === 'visita' && citaActiva && (
+          <section className="kv-tr-cita" aria-label="Tu cita de entrega">
+            <span className="kv-cliente-etiqueta">Tu cita de entrega con IDC</span>
+            <strong>{formatearFechaLargaHermosillo(citaActiva.fecha)} · {citaActiva.horaInicio} – {citaActiva.horaFin} (Hermosillo)</strong>
+            <span>{INFO_TIPO_VISITA[citaActiva.tipoVisita].titulo} · {citaActiva.ubicacionAutorizada ?? 'Oficinas de IDC, Hermosillo (por confirmar)'}</span>
+            <EnlacePortal to="/portal/visita" secundario>Ver mi visita y mi lista física</EnlacePortal>
+          </section>
+        )}
+      </> : (
       <div className="kv-cliente-principal">
         <section className="kv-cliente-proyecto" aria-label="Avance operativo">
           <EnergiaPortal className="kv-cliente-proyecto__energia" />
@@ -170,6 +205,8 @@ export function PortalInicio() {
           <EnlacePortal to={accion.ruta}>{accion.boton}</EnlacePortal>
         </section>
       </div>
+
+      )}
 
       <section className="kv-cliente-seccion">
         <h2>Tu espacio</h2>

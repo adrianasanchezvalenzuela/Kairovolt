@@ -6,6 +6,7 @@ import type { ParticipantesPortal } from './participantes';
 import { PERMISOS_PORTAL_POR_DEFECTO } from '../../src/application/portal-cliente';
 import { kv2026004Demo } from '../../src/data/kv-2026-004.demo';
 import { demosPortal } from '../../src/data/demos-portal';
+import { REPRESENTANTE_DEMO, TESTIGOS_DEMO, TITULAR_DEMO } from '../../src/data/personas-demo';
 import { CATALOGO_MEDIA_TENSION_DEMO, TIPOS_MEDIA_TENSION_DEMO } from '../catalogo';
 import { datosIniciales } from '../../src/application/participantes';
 import { generarCodigo, huellaCodigo } from './codigo';
@@ -28,10 +29,10 @@ export const participantesCasoEnviado: VersionParticipantes = {
   datos: {
     ...datosIniciales,
     tipoTitular: 'fisica',
-    titular: 'Titular ficticio del caso enviado',
+    titular: TITULAR_DEMO.nombre,
     tramita: 'apoderado',
-    apoderado: 'Apoderada ficticia del caso enviado',
-    testigos: ['Testigo ficticio A', 'Testigo ficticio B'],
+    apoderado: REPRESENTANTE_DEMO.nombre,
+    testigos: [TESTIGOS_DEMO[0].nombre, TESTIGOS_DEMO[1].nombre],
   },
 };
 
@@ -41,10 +42,10 @@ export const participantesCasoListo: VersionParticipantes = {
   datos: {
     ...datosIniciales,
     tipoTitular: 'fisica',
-    titular: 'Titular ficticio del expediente preparado',
+    titular: TITULAR_DEMO.nombre,
     tramita: 'apoderado',
-    apoderado: 'Apoderada ficticia',
-    testigos: ['Testigo ficticio A', 'Testigo ficticio B'],
+    apoderado: REPRESENTANTE_DEMO.nombre,
+    testigos: [TESTIGOS_DEMO[0].nombre, TESTIGOS_DEMO[1].nombre],
   },
 };
 
@@ -66,7 +67,7 @@ export function crearAccesosMemoria(ahora: () => number = Date.now, sembrarDemo 
   };
   if (sembrarDemo) alta(FOLIO_DEMO, CODIGO_DEMO, { ...PERMISOS_PORTAL_POR_DEFECTO, editar_participantes: true }, 3650);
   if (sembrarDemo && incluirEnviado) {
-    for (const caso of [enviado, listo]) {
+    for (const caso of demosPortal.slice(1)) {
       alta(caso.folio, caso.codigo, { ...PERMISOS_PORTAL_POR_DEFECTO, editar_participantes: true }, 3650);
     }
   }
@@ -101,7 +102,7 @@ export function crearAccesosMemoria(ahora: () => number = Date.now, sembrarDemo 
 export function crearParticipantesDemo(incluirEnviado = false): ParticipantesPortal {
   const versiones = new Map<string, VersionParticipantes>();
   if (incluirEnviado) versiones.set(enviado.folio, participantesCasoEnviado);
-  if (incluirEnviado) versiones.set(listo.folio, participantesCasoListo);
+  if (incluirEnviado) for (const caso of [listo, ...demosPortal.slice(3)]) versiones.set(caso.folio, participantesCasoListo);
   return {
     async consultar(acceso) { return versiones.get(acceso.folio) ?? null; },
     async guardar(acceso, entrada) {
@@ -232,6 +233,12 @@ export const fuenteDemo: FuenteProyectoPortal = {
   },
 };
 
+const NOMBRES_TRAMITE: Readonly<Record<string, string>> = {
+  [demosPortal[3].folio]: 'Interconexión FV 40 kW · solicitud aprobada por CFE',
+  [demosPortal[4].folio]: 'Interconexión FV 40 kW · instalación del medidor',
+  [demosPortal[5].folio]: 'Interconexión FV 40 kW · interconexión concluida',
+};
+
 export const fuenteDemosLocales: FuenteProyectoPortal = {
   ...fuenteDemo,
   async obtener(folio) {
@@ -242,6 +249,8 @@ export const fuenteDemosLocales: FuenteProyectoPortal = {
       nombre: 'Interconexión FV 40 kW · preparación y revisión documental',
       documentos: [],
     };
+    const nombreTramite = NOMBRES_TRAMITE[folio];
+    if (nombreTramite) return { ...kv2026004Demo, id: folio, folio, nombre: nombreTramite, documentos: [] };
     return fuenteDemo.obtener(folio);
   },
 };

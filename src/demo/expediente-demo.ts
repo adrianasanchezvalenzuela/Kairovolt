@@ -6,11 +6,13 @@
 import { useSyncExternalStore } from 'react';
 import type { DocumentoSolicitado, EstadoDocumentoCliente, Notificacion, Recepcion, VistaPortal } from '../application/portal-cliente';
 import type { ElegibilidadCita } from '../domain/citas/cita';
+import { FOLIOS_TRAMITE_DEMO } from '../data/demos-portal';
+import { diaDemo } from '../data/personas-demo';
 
 export const FOLIO_DEMO_PREPARACION = 'KV-2026-005';
 export const FOLIO_DEMO_ENTREGA = 'KV-2026-006';
-export const FOLIOS_DEMO_DOCUMENTAL = [FOLIO_DEMO_PREPARACION, FOLIO_DEMO_ENTREGA] as const;
-export const esFolioDocumentalDemo = (folio: string) => (FOLIOS_DEMO_DOCUMENTAL as readonly string[]).includes(folio);
+export const FOLIOS_DEMO_DOCUMENTAL: readonly string[] = [FOLIO_DEMO_PREPARACION, FOLIO_DEMO_ENTREGA, ...FOLIOS_TRAMITE_DEMO];
+export const esFolioDocumentalDemo = (folio: string) => FOLIOS_DEMO_DOCUMENTAL.includes(folio);
 export const CORREO_CLIENTE_DEMO = 'cliente-demo@example.invalid';
 export const LEYENDA_DEMO = 'Demostración — Sin validez legal';
 
@@ -60,7 +62,8 @@ interface Almacen { v: number; folios: Record<string, EstadoFolio> }
 
 const LLAVE = 'kairovolt:demo-expediente:v2';
 const ahora = () => new Date().toISOString();
-const hace = (dias: number, h = 10) => { const d = new Date(); d.setDate(d.getDate() - dias); d.setHours(h, 0, 0, 0); return d.toISOString(); };
+// Línea de tiempo fija: las fechas coinciden con las impresas en los PDF de demostración.
+const hace = (dias: number, h = 10) => diaDemo(-dias, h);
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 export const COMENTARIO_CARTA_PODER =
@@ -70,7 +73,8 @@ function ver(n: number, archivo: string, fecha: string, autor: VersionDemo['auto
 const d = (estado: EstadoDemo, versiones: VersionDemo[] = [], extra: Partial<DocEstado> = {}): DocEstado => ({ estado, versiones, reportes: [], ...extra });
 
 function semilla(folio: string): EstadoFolio {
-  if (folio === FOLIO_DEMO_ENTREGA) {
+  // Demo 3 y demos 4–6 (trámite posterior): los 11 requisitos ya están completos y prevalidados.
+  if (folio !== FOLIO_DEMO_PREPARACION) {
     return {
       docs: {
         identificacion_oficial: d('prevalidado', [ver(1, 'identificacion-ficticia.pdf', hace(12))], { revisadoEn: hace(11) }),

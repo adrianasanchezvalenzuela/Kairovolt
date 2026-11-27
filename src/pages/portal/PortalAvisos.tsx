@@ -3,6 +3,7 @@ import { EnlacePortal, PortadaPortal } from '@/components/portal/DisenoPortal';
 import { EmptyState } from '@/components/ui/Estados';
 import { formatearFechaLargaHermosillo, ZONA_HORARIA_IDC } from '@/domain/citas/cita';
 import { useVistaPortal } from '@/hooks/PortalContexto';
+import { accionesTramite } from '@/demo/tramite-demo';
 
 const tipo = {
   recepcion: { Icono: FileCheck2, etiqueta: 'Recepción', ruta: '/portal/documentos' },
@@ -12,7 +13,7 @@ const tipo = {
 } as const;
 
 export function PortalAvisos() {
-  const { notificaciones, demo } = useVistaPortal();
+  const { notificaciones, demo, folio } = useVistaPortal();
   const grupos = new Map<string, typeof notificaciones>();
   for (const n of notificaciones) {
     const dia = n.fecha.slice(0, 10);
@@ -141,12 +142,12 @@ export function PortalAvisos() {
                   const cfg = tipo[n.tipo];
                   const Icono = n.citaId ? CalendarDays : cfg.Icono;
                   const correccion = n.id.startsWith('n:rechazo:');
-                  const destino = n.citaId
+                  const destino = n.ruta ? n.ruta : n.citaId
                     ? '/portal/visita'
                     : n.documentoId
                       ? '/portal/documentos?documento=' + encodeURIComponent(n.documentoId)
                       : cfg.ruta;
-                  const textoEnlace = n.citaId
+                  const textoEnlace = n.accion ? n.accion : n.citaId
                     ? n.eventoTipo === 'cita_propuesta_horario'
                       ? 'Revisar propuesta'
                       : 'Ver detalles de mi visita'
@@ -156,12 +157,13 @@ export function PortalAvisos() {
                         ? 'Ver proyecto'
                         : 'Ir a Documentos';
                   return (
-                    <li key={n.id} data-tipo={correccion ? 'correccion' : n.tipo}>
+                    <li key={n.id} data-tipo={correccion ? 'correccion' : n.tipo} data-leido={n.leido === undefined ? undefined : String(n.leido)}>
                       <span className="kv-cliente-evento-icono"><Icono size={20} aria-hidden="true" /></span>
                       <div>
                         <small>{correccion ? 'Corrección documental' : n.citaId ? 'Cita de visita' : cfg.etiqueta}</small>
-                        <h3>{n.titulo}</h3>
+                        <h3>{n.titulo}{n.leido === false && <span className="kv-aviso-nuevo">Nuevo</span>}</h3>
                         {n.detalle && <p>{n.detalle}</p>}
+                        {n.leido === false && <button type="button" className="kv-aviso-leer" onClick={() => accionesTramite.leerAviso(folio, n.id)}>Marcar como leído</button>}
                       </div>
                       <EnlacePortal to={destino} secundario>{textoEnlace}</EnlacePortal>
                     </li>

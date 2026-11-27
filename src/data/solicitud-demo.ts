@@ -22,14 +22,14 @@ export interface DatosSolicitud {
 }
 
 export const SOLICITUD_FIJA = {
-  titularDemo: 'Agroenergía del Yaqui, S.A. de C.V.',
-  contactoDemo: 'Mariana Ochoa Beltrán',
-  puestoDemo: 'Representante legal',
+  titularDemo: 'Roberto Alfonso Quiroz Mendívil',
+  contactoDemo: 'Lucía Fernanda Navarro Ibarra',
+  puestoDemo: 'Apoderada',
   domicilio: {
     calle: 'Calle Ejemplo', numExt: '100', numInt: '', cp: '83000', colonia: 'Colonia Ejemplo',
     municipio: 'Hermosillo', estado: 'Sonora', telefono: '662 000 0000', correo: 'contacto@ejemplo.invalid',
   } satisfies DomicilioSolicitud,
-  rpu: '000 000 000 000',
+  rpu: '999 000 000 042',
   nivelTension: 'Media tensión (dato ficticio)',
   capacidadBrutaKw: '40',
   generacionMensualKwh: '6600',

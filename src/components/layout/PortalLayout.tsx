@@ -1,12 +1,43 @@
-import { useEffect } from 'react';
-import { Bell, CalendarDays, ClipboardList, FolderOpen, History, House, Info, LogOut, UserRound } from 'lucide-react';
-import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Bell, CalendarDays, ClipboardList, FolderOpen, Archive, ChevronLeft, ChevronRight, FileSignature, Gauge, History, House, Info, LogOut, RotateCcw, UserRound, Waypoints } from 'lucide-react';
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { CargaPortal, MarcaPortal } from '@/components/portal/DisenoPortal';
 import { REQUIERE_ACCION } from '@/components/portal/estados';
 import { Boton } from '@/components/ui/Boton';
 import { ErrorState } from '@/components/ui/Estados';
 import { usePortal } from '@/hooks/PortalContexto';
-import { esCapturaDemo } from '@/data/demos-portal';
+import { demosPortal, esCapturaDemo, esTramiteDemo } from '@/data/demos-portal';
+
+/** Navegación secuencial entre demos (solo desarrollo): anterior, indicador «Demo n de N» y siguiente / reiniciar. */
+function NavegacionDemos({ folio }: { folio: string }) {
+  const { entrar } = usePortal();
+  const navegar = useNavigate();
+  const [ocupado, setOcupado] = useState(false);
+  const total = demosPortal.length;
+  const indice = Math.max(0, demosPortal.findIndex((d) => d.folio === folio));
+  const ultimo = indice === total - 1;
+
+  async function ir(destino: number) {
+    const demo = demosPortal[destino];
+    if (!demo || ocupado) return;
+    setOcupado(true);
+    try {
+      document.querySelectorAll('dialog[open]').forEach((d) => (d as HTMLDialogElement).close());
+      await entrar(demo.folio, demo.codigo);
+      navegar('/portal/inicio', { replace: true });
+      window.scrollTo({ top: 0 });
+    } finally { setOcupado(false); }
+  }
+
+  return <div className="kv-demo-nav" role="group" aria-label="Navegación entre demostraciones">
+    <button type="button" className="kv-demo-nav__ant" disabled={indice === 0 || ocupado} onClick={() => void ir(indice - 1)} aria-label="Demo anterior" title="Demo anterior"><ChevronLeft size={18} aria-hidden="true" /></button>
+    <NavLink to="/portal/demos" className="kv-cliente-demo" title="Elegir una demostración">DEMO · Cambiar</NavLink>
+    <span className="kv-demo-nav__indice" aria-live="polite">Demo {indice + 1} de {total}</span>
+    <button type="button" className="kv-demo-nav__sig" disabled={ocupado} onClick={() => void ir(ultimo ? 0 : indice + 1)}>
+      {ultimo ? <><RotateCcw size={16} aria-hidden="true" /><span>Reiniciar recorrido</span></> : <><span>Siguiente demo</span><ChevronRight size={18} aria-hidden="true" /></>}
+    </button>
+  </div>;
+}
 
 export function PortalLayout() {
   const { fase, salir, recargar } = usePortal();
@@ -26,11 +57,14 @@ export function PortalLayout() {
     return <Navigate to="/portal/inicio" replace />;
   }
   const avisos = v.notificaciones.filter((n) => n.tipo === 'accion').length;
+  const tramite = esTramiteDemo(v);
   const items = [
     { to: '/portal/inicio', etiqueta: 'Inicio', Icono: House, cuenta: 0 },
+    ...(tramite ? [{ to: '/portal/recorrido', etiqueta: 'Mi recorrido', Icono: Waypoints, cuenta: 0 }] : []),
     ...(v.permisos.editarParticipantes ? [{ to: '/portal/mis-datos', etiqueta: 'Mis datos', Icono: ClipboardList, cuenta: 0 }] : []),
     ...(!soloCaptura ? [
       { to: '/portal/documentos', etiqueta: 'Documentos', Icono: FolderOpen, cuenta: v.documentos?.filter((d) => REQUIERE_ACCION.includes(d.estado)).length ?? 0 },
+      ...(tramite ? [{ to: '/portal/contratos', etiqueta: 'Mis contratos', Icono: FileSignature, cuenta: 0 }, { to: '/portal/instalacion', etiqueta: 'Mi instalación', Icono: Gauge, cuenta: 0 }, { to: '/portal/expediente', etiqueta: 'Expediente final', Icono: Archive, cuenta: 0 }] : []),
       ...(v.documentos !== null ? [{ to: '/portal/visita', etiqueta: 'Mi visita', Icono: CalendarDays, cuenta: 0 }] : []),
       { to: '/portal/avisos', etiqueta: 'Avisos', Icono: Bell, cuenta: avisos },
       { to: '/portal/historial', etiqueta: 'Historial', Icono: History, cuenta: 0 },
@@ -43,7 +77,7 @@ export function PortalLayout() {
     <aside className="kv-cliente-sidebar" aria-label="Portal KairóVolt">
       <MarcaPortal />
       <div className="kv-cliente-folio"><FolderOpen size={16} aria-hidden="true" /><span>{v.folio}</span></div>
-      <nav className="kv-cliente-nav" aria-label="Secciones del portal">
+      <nav className={"kv-cliente-nav" + (items.length > 6 ? " kv-cliente-nav--amplia" : "")} aria-label="Secciones del portal">
         {items.map(({ to, Icono, etiqueta, cuenta }) => <NavLink to={to} key={to}>
           <Icono size={19} aria-hidden="true" /><span>{etiqueta}</span>
           {cuenta > 0 && <span className="kv-cliente-nav__cuenta" aria-label={cuenta + ' pendientes'}>{cuenta}</span>}
@@ -57,7 +91,7 @@ export function PortalLayout() {
         <span className="kv-cliente-top__ruta">{titulo}</span>
         <div className="kv-cliente-top__acciones">
           {v.demo && (import.meta.env.DEV && window.location.pathname.startsWith('/demo/portal')
-            ? <NavLink to="/portal/demos" className="kv-cliente-demo" title="Cambiar demostración">DEMO · Cambiar</NavLink>
+            ? <NavegacionDemos folio={v.folio} />
             : <span className="kv-cliente-demo">DEMO</span>)}
           {!soloCaptura && <NavLink className="kv-cliente-iconbtn" to="/portal/avisos" aria-label={avisos ? 'Avisos, ' + avisos + ' pendientes' : 'Avisos'}><Bell size={19} aria-hidden="true" /></NavLink>}
           <span className="kv-cliente-top__cuenta"><UserRound size={16} aria-hidden="true" /> Cliente IDC</span>

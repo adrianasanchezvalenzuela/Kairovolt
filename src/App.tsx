@@ -17,7 +17,8 @@ import { Proyectos } from '@/pages/Proyectos';
 import { SeguimientoCfe } from '@/pages/SeguimientoCfe';
 import { Validaciones } from '@/pages/Validaciones';
 import { ProyectoDetalle } from '@/pages/ProyectoDetalle';
-import { PortalProveedor } from '@/hooks/PortalContexto';
+import { PortalProveedor, useVistaPortal } from '@/hooks/PortalContexto';
+import { esTramiteDemo } from '@/data/demos-portal';
 import { PortalAcceso } from '@/pages/portal/PortalAcceso';
 import { PortalAvisos } from '@/pages/portal/PortalAvisos';
 import { PortalHistorial } from '@/pages/portal/PortalHistorial';
@@ -32,11 +33,22 @@ import { Avisos, Cita, Documentos as DocsProto, Historial, Inicio } from '@/prot
 import { Agenda, Expediente, Mesa } from '@/prototipo/Idc';
 
 const PortalDocumentos = lazy(() => import('@/pages/portal/PortalDocumentos').then((m) => ({ default: m.PortalDocumentos })));
+const cargarTramite = () => import('@/pages/portal/tramite/Tramite');
+const MisContratos = lazy(() => cargarTramite().then((m) => ({ default: m.MisContratos })));
+const MiInstalacion = lazy(() => cargarTramite().then((m) => ({ default: m.MiInstalacion })));
+const MiRecorrido = lazy(() => cargarTramite().then((m) => ({ default: m.MiRecorrido })));
+const ExpedienteFinal = lazy(() => cargarTramite().then((m) => ({ default: m.ExpedienteFinal })));
 const PortalVisita = lazy(() => import('@/pages/portal/PortalVisita').then((m) => ({ default: m.PortalVisita })));
 const Configuracion = lazy(() => import('@/pages/Configuracion').then((m) => ({ default: m.Configuracion })));
 const PortalDemos = import.meta.env.DEV ? lazy(() => import('@/pages/portal/PortalDemos').then((m) => ({ default: m.PortalDemos }))) : null;
 const IdcDemo = import.meta.env.DEV ? lazy(() => import('@/pages/IdcDemo').then((m) => ({ default: m.IdcDemo }))) : null;
 const PortalRevisionDemo = import.meta.env.DEV ? lazy(() => import('@/pages/portal/PortalRevisionDemo').then((m) => ({ default: m.PortalRevisionDemo }))) : null;
+
+/** Las pantallas del trámite posterior (contratos, instalación, recorrido, expediente final) solo existen en los demos 4 a 6. */
+function SoloTramite({ children }: { children: React.ReactNode }) {
+  const v = useVistaPortal();
+  return esTramiteDemo(v) ? <>{children}</> : <Navigate to="/portal/inicio" replace />;
+}
 
 /** Galería de componentes: solo en desarrollo (no entra al build de producción). */
 const Componentes = import.meta.env.DEV ? lazy(() => import('@/pages/Componentes').then((m) => ({ default: m.Componentes }))) : null;
@@ -92,6 +104,10 @@ export function App() {
             <Route path="visita" element={<Suspense fallback={<CargaPortal etiqueta="Preparando tu visita…" />}><PortalVisita /></Suspense>} />
             <Route path="cita" element={<Suspense fallback={<CargaPortal etiqueta="Preparando tu visita…" />}><PortalVisita /></Suspense>} />
             {PortalRevisionDemo && <Route path="revision-demo" element={<Suspense fallback={<CargaPortal etiqueta="Abriendo revisión de prueba…" />}><PortalRevisionDemo /></Suspense>} />}
+            <Route path="contratos" element={<SoloTramite><Suspense fallback={<CargaPortal etiqueta="Abriendo tus contratos…" />}><MisContratos /></Suspense></SoloTramite>} />
+            <Route path="instalacion" element={<SoloTramite><Suspense fallback={<CargaPortal etiqueta="Abriendo tu instalación…" />}><MiInstalacion /></Suspense></SoloTramite>} />
+            <Route path="recorrido" element={<SoloTramite><Suspense fallback={<CargaPortal etiqueta="Abriendo tu recorrido…" />}><MiRecorrido /></Suspense></SoloTramite>} />
+            <Route path="expediente" element={<SoloTramite><Suspense fallback={<CargaPortal etiqueta="Abriendo tu expediente…" />}><ExpedienteFinal /></Suspense></SoloTramite>} />
             <Route path="mis-datos" element={<PortalMisDatos />} />
             <Route path="documentos" element={<Suspense fallback={<CargaPortal etiqueta="Abriendo tus documentos…" />}><PortalDocumentos /></Suspense>} />
             <Route path="avisos" element={<PortalAvisos />} />

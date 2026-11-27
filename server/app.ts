@@ -165,7 +165,7 @@ export function crearApp(config: ConfigServidor, fetchFn: FetchFn = fetch, ahora
       participantes: crearParticipantesDemo(true),
       almacen: almacenDescarte,
       fuente: fuenteDemosLocales,
-      catalogo: async (folio) => requisitosChecklist(catalogoDeDemostracion(folio === demosPortal[1].folio || folio === demosPortal[2].folio)),
+      catalogo: async (folio) => requisitosChecklist(catalogoDeDemostracion(demosPortal.slice(1).some((d) => d.folio === folio))),
       secreto: derivarSecretoPortal(crypto.randomUUID()),
       cookie: { nombre: 'kv_portal_demo', ruta: '/api/demo/portal' },
       persistencia: { accesos: 'memoria', archivos: 'no_se_guardan' },

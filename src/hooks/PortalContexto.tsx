@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { ErrorPortal, type ResultadoSubida, type VistaPortalConEstado } from '@/application/portal-acceso';
 import { portalRepositorio } from '@/infrastructure';
 import { aplicarExpedienteDemo, esFolioDocumentalDemo, leerExpedienteDemo, useVersionExpedienteDemo } from '@/demo/expediente-demo';
+import { aplicarTramiteDemo, esFolioTramite, leerTramite, useVersionTramiteDemo } from '@/demo/tramite-demo';
 
 export type FasePortal =
   | { tipo: 'cargando' }
@@ -24,12 +25,14 @@ const Contexto = createContext<ValorPortal | null>(null);
 export function PortalProveedor({ children }: { children?: ReactNode }) {
   const [faseServidor, setFase] = useState<FasePortal>({ tipo: 'cargando' });
   const versionDemo = useVersionExpedienteDemo();
+  const versionTramite = useVersionTramiteDemo();
   // Demos documentales: la vista del servidor se completa con el estado mock compartido con el panel IDC.
   const fase = useMemo<FasePortal>(() => {
     if (faseServidor.tipo !== 'listo' || !faseServidor.vista.demo || !esFolioDocumentalDemo(faseServidor.vista.folio)) return faseServidor;
-    return { tipo: 'listo', vista: { ...faseServidor.vista, ...aplicarExpedienteDemo(faseServidor.vista, leerExpedienteDemo(faseServidor.vista.folio)) } };
+    const conDocumentos = { ...faseServidor.vista, ...aplicarExpedienteDemo(faseServidor.vista, leerExpedienteDemo(faseServidor.vista.folio)) };
+    return { tipo: 'listo', vista: esFolioTramite(conDocumentos.folio) ? { ...conDocumentos, ...aplicarTramiteDemo(conDocumentos, leerTramite(conDocumentos.folio)) } : conDocumentos };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [faseServidor, versionDemo]);
+  }, [faseServidor, versionDemo, versionTramite]);
 
   const cargar = useCallback(async () => {
     try {

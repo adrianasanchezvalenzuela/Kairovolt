@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "server": "node --env-file-if-exists=server/.env --import tsx server/index.ts",
     "correo:portal": "node --env-file-if-exists=server/.env --import tsx server/procesar-correo-portal.ts",
-    "start": "vite build && npm run server"
+    "start": "vite build && npm run server",
+    "demo:documentos": "tsx scripts/generar-documentos-demo.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.11",

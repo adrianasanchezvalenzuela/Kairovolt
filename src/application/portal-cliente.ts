@@ -78,6 +78,10 @@ export interface Notificacion {
   citaId?: string;
   eventoTipo?: string;
   /** Solo demostración: contenido del correo simulado (no se envía nada). */
+  /** Solo demostración (trámite posterior): estado de lectura y destino del aviso. */
+  leido?: boolean;
+  ruta?: string;
+  accion?: string;
   correoDemo?: { asunto: string; para: string; parrafos: string[]; boton: string };
   citaResumen?: {
     referencia: string;

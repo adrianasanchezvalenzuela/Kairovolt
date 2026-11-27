@@ -40,6 +40,8 @@ import {
 } from '@/domain/citas/cita';
 import { usePortal, useVistaPortal } from '@/hooks/PortalContexto';
 import { elegibilidadConDemo, GRUPO_POR_DOCUMENTO } from '@/demo/expediente-demo';
+import { esTramiteDemo } from '@/data/demos-portal';
+import { VisitaRealizada } from '@/pages/portal/tramite/Tramite';
 import {
   cancelarCitaPortal,
   disponibilidadVisitaPortal,
@@ -199,7 +201,13 @@ function CalendarioInteractivo({
   );
 }
 
+/** En los demos 4 a 6 la entrega física ya ocurrió: se muestra un resumen en lugar del agendador. */
 export function PortalVisita() {
+  const v = useVistaPortal();
+  return esTramiteDemo(v) ? <VisitaRealizada /> : <PortalVisitaBase />;
+}
+
+function PortalVisitaBase() {
   const v = useVistaPortal();
   const { recargar } = usePortal();
   const hoy = fechaHoyHermosillo();
